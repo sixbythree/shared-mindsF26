@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Create an image from a text prompt with Google's Nano Banana 2.">
+  <title>Nano Banana 2 — Shared Minds</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <main class="app">
+    <a class="back-link" href="../">&larr; All projects</a>
+
+    <header class="intro">
+      <p class="eyebrow">Shared Minds · Image experiment</p>
+      <h1>Nano Banana <span>2</span></h1>
+      <p class="lede">Turn a thought into an image. Describe what you want to see and let the model take it from there.</p>
+    </header>
+
+    <form id="prompt-form" class="prompt-form">
+      <label for="prompt">Your image prompt</label>
+      <textarea
+        id="prompt"
+        name="prompt"
+        maxlength="2000"
+        placeholder="A tiny greenhouse on the moon, warm light glowing through the glass..."
+        required
+      ></textarea>
+      <div class="form-footer">
+        <p class="model-note">Powered by Google Nano Banana 2 via the ITP/IMA Replicate proxy.</p>
+        <button id="generate-button" type="submit">
+          <span class="button-label">Generate image</span>
+          <span class="button-arrow" aria-hidden="true">&rarr;</span>
+        </button>
+      </div>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+    <section id="results" class="results" aria-label="Generated images"></section>
+  </main>
+</body>
+</html>
