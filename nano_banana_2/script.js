@@ -52,7 +52,7 @@ form.addEventListener("submit", async (event) => {
 function setLoading(isLoading) {
   generateButton.disabled = isLoading;
   promptInput.disabled = isLoading;
-  buttonLabel.textContent = isLoading ? "Generating…" : "Generate image";
+  buttonLabel.textContent = isLoading ? "Generating…" : "Submit";
 }
 
 function setStatus(message, kind = "info") {
