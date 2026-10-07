@@ -241,17 +241,42 @@ button:disabled {
 }
 
 .gallery {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
-  gap: 1rem;
+  position: relative;
+  min-height: 42rem;
+  overflow: hidden;
+  border: 1px dashed #3b493c;
+  border-radius: 1rem;
+  background-color: rgb(255 255 255 / 1.5%);
+  background-image: radial-gradient(#3b493c 1px, transparent 1px);
+  background-size: 1.25rem 1.25rem;
 }
 
 .gallery-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(15rem, calc(100% - 1.5rem));
   overflow: hidden;
   margin: 0;
   border: 1px solid #303a31;
   border-radius: 0.85rem;
   background: #141a15;
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 28%);
+  cursor: grab;
+  touch-action: none;
+  transform: translate(-50%, -50%);
+  user-select: none;
+  transition: box-shadow 120ms ease;
+}
+
+.gallery-card:focus-visible {
+  outline: 3px solid #a6cf9e;
+  outline-offset: 3px;
+}
+
+.gallery-card.is-dragging {
+  box-shadow: 0 1rem 2.5rem rgb(0 0 0 / 48%);
+  cursor: grabbing;
 }
 
 .gallery-card > a {
@@ -302,6 +327,14 @@ button:disabled {
 
   button {
     width: 100%;
+  }
+
+  .gallery {
+    min-height: 36rem;
+  }
+
+  .gallery-card {
+    width: min(12rem, calc(100% - 1.5rem));
   }
 }
 

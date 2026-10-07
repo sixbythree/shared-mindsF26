@@ -14,7 +14,9 @@ service cloud.firestore {
           'prompt',
           'imageUrl',
           'model',
-          'createdAt'
+          'createdAt',
+          'x',
+          'y'
         ])
         && request.resource.data.prompt is string
         && request.resource.data.prompt.size() > 0
@@ -22,8 +24,25 @@ service cloud.firestore {
         && request.resource.data.imageUrl is string
         && request.resource.data.imageUrl.matches('^https://replicate\\.delivery/.*$')
         && request.resource.data.model == 'google/nano-banana-2'
-        && request.resource.data.createdAt == request.time;
-      allow update, delete: if false;
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.x is number
+        && request.resource.data.x >= 0
+        && request.resource.data.x <= 1
+        && request.resource.data.y is number
+        && request.resource.data.y >= 0
+        && request.resource.data.y <= 1;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'x',
+          'y'
+        ])
+        && request.resource.data.keys().hasAll(['x', 'y'])
+        && request.resource.data.x is number
+        && request.resource.data.x >= 0
+        && request.resource.data.x <= 1
+        && request.resource.data.y is number
+        && request.resource.data.y >= 0
+        && request.resource.data.y <= 1;
+      allow delete: if false;
     }
 
     match /{document=**} {
