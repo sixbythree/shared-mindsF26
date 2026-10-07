@@ -6,7 +6,6 @@ const promptInput = document.querySelector("#prompt");
 const generateButton = document.querySelector("#generate-button");
 const buttonLabel = generateButton.querySelector(".button-label");
 const statusMessage = document.querySelector("#status");
-const results = document.querySelector("#results");
 const gallery = document.querySelector("#gallery");
 const galleryStatus = document.querySelector("#gallery-status");
 const galleryCount = document.querySelector("#gallery-count");
@@ -29,7 +28,7 @@ form.addEventListener("submit", async (event) => {
 
   setLoading(true);
   setStatus("Sending your prompt to Nano Banana 2…");
-  results.replaceChildren();
+  let imageWasGenerated = false;
 
   try {
     const response = await fetch(REPLICATE_PROXY_URL, {
@@ -51,13 +50,12 @@ form.addEventListener("submit", async (event) => {
       throw new Error(getErrorMessage(prediction) || "The model response did not include an image.");
     }
 
-    renderImages(imageUrls, prompt);
+    imageWasGenerated = true;
     setStatus("Image generated. Saving it to the shared gallery…");
     await saveImages(imageUrls, prompt);
     setStatus(imageUrls.length === 1 ? "Your image is ready and saved." : `${imageUrls.length} images are ready and saved.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Something went wrong. Please try again.";
-    const imageWasGenerated = results.childElementCount > 0;
     setStatus(
       imageWasGenerated ? `Image generated, but it couldn't be saved: ${message}` : message,
       "error",
@@ -92,29 +90,6 @@ function getErrorMessage(payload, statusCode) {
   if (message) return message;
   if (statusCode) return `The image request failed (HTTP ${statusCode}). Please try again.`;
   return payload?.status === "failed" ? "The model could not generate that image. Try another prompt." : "";
-}
-
-function renderImages(imageUrls, prompt) {
-  for (const [index, url] of imageUrls.entries()) {
-    const figure = document.createElement("figure");
-    figure.className = "result-card";
-
-    const image = document.createElement("img");
-    image.src = url;
-    image.alt = `Generated image for: ${prompt}`;
-    image.loading = "lazy";
-    figure.append(image);
-
-    const caption = document.createElement("figcaption");
-    const link = document.createElement("a");
-    link.href = url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.textContent = `Open image ${index + 1} in a new tab`;
-    caption.append(link);
-    figure.append(caption);
-    results.append(figure);
-  }
 }
 
 async function saveImages(imageUrls, prompt) {
@@ -353,9 +328,9 @@ function hasPosition(imageData) {
 
 function getInitialPosition(index) {
   const angle = index * 2.399963229728653;
-  const radius = Math.min(0.08 + Math.sqrt(index) * 0.1, 0.35);
+  const radius = Math.min(0.12 + Math.sqrt(index) * 0.075, 0.68);
   return {
-    x: 0.5 + Math.cos(angle) * radius,
-    y: 0.5 + Math.sin(angle) * radius,
+    x: Math.min(Math.max(0.5 + Math.cos(angle) * radius, 0.08), 0.92),
+    y: Math.min(Math.max(0.5 + Math.sin(angle) * radius, 0.08), 0.92),
   };
 }
