@@ -8,19 +8,24 @@ service cloud.firestore {
           'prompt',
           'imageUrl',
           'model',
+          'makerName',
           'createdAt'
         ])
-        && request.resource.data.keys().hasOnly([
-          'prompt',
-          'imageUrl',
-          'model',
-          'createdAt',
-          'x',
-          'y'
+          && request.resource.data.keys().hasOnly([
+            'prompt',
+            'imageUrl',
+            'model',
+            'makerName',
+            'createdAt',
+            'x',
+            'y'
         ])
         && request.resource.data.prompt is string
         && request.resource.data.prompt.size() > 0
         && request.resource.data.prompt.size() <= 2000
+        && request.resource.data.makerName is string
+        && request.resource.data.makerName.size() > 0
+        && request.resource.data.makerName.size() <= 80
         && request.resource.data.imageUrl is string
         && request.resource.data.imageUrl.matches('^https://replicate\\.delivery/.*$')
         && request.resource.data.model == 'google/nano-banana-2'

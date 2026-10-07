@@ -248,6 +248,11 @@ button:disabled {
   cursor: grabbing;
 }
 
+.gallery-card:not(.is-owned),
+.gallery-card:not(.is-owned) img {
+  cursor: default;
+}
+
 .gallery-card > a {
   display: block;
   cursor: grab;
@@ -287,6 +292,12 @@ button:disabled {
   line-height: 1.5;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
+}
+
+.gallery-maker {
+  margin: 0.6rem 0 0;
+  color: #a6cf9e;
+  font-size: 0.78rem;
 }
 
 .gallery-card time {

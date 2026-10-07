@@ -9,13 +9,18 @@ const statusMessage = document.querySelector("#status");
 const gallery = document.querySelector("#gallery");
 const galleryStatus = document.querySelector("#gallery-status");
 const galleryCount = document.querySelector("#gallery-count");
+const currentMakerStatus = document.querySelector("#current-maker");
 const galleryCards = new Map();
+const currentMaker = window.prompt("What's your name?")?.trim() ?? "";
 
 const database = firebase.initializeApp(window.firebaseConfig).firestore();
 const imagesCollection = database.collection("generatedImages");
 let activeDrag = null;
 let highestZIndex = 0;
 
+currentMakerStatus.textContent = currentMaker
+  ? `Creating as ${currentMaker}. Only pictures with this name can be moved in this browser session.`
+  : "No name entered. You can browse, but must reload to create or move pictures.";
 loadGallery();
 
 form.addEventListener("submit", async (event) => {
@@ -23,6 +28,10 @@ form.addEventListener("submit", async (event) => {
   const prompt = promptInput.value.trim();
   if (!prompt) {
     promptInput.focus();
+    return;
+  }
+  if (!currentMaker) {
+    setStatus("Reload the page and enter your name before submitting a prompt.", "error");
     return;
   }
 
@@ -98,6 +107,7 @@ async function saveImages(imageUrls, prompt) {
     prompt,
     imageUrl,
     model: MODEL,
+    makerName: currentMaker,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     ...getInitialPosition(firstIndex + index),
   })));
@@ -144,7 +154,14 @@ function renderGalleryImage(id, imageData, index) {
   elements.image.src = imageData.imageUrl;
   elements.image.alt = `Generated image: ${imageData.prompt}`;
   elements.prompt.textContent = imageData.prompt;
-  elements.card.setAttribute("aria-label", `Generated image: ${imageData.prompt}. Use arrow keys to move.`);
+  const makerName = typeof imageData.makerName === "string" ? imageData.makerName : "";
+  elements.maker.textContent = makerName ? `Made by ${makerName}` : "Maker not recorded";
+  elements.card.dataset.makerName = makerName;
+  elements.card.classList.toggle("is-owned", Boolean(currentMaker) && makerName === currentMaker);
+  elements.card.setAttribute(
+    "aria-label",
+    `Generated image: ${imageData.prompt}. Made by ${makerName || "unknown"}.${makerName === currentMaker ? " Use arrow keys to move." : ""}`,
+  );
 
   if (imageData.createdAt?.toDate) {
     const createdAt = imageData.createdAt.toDate();
@@ -184,8 +201,10 @@ function createGalleryCard(id) {
   const caption = document.createElement("figcaption");
   const prompt = document.createElement("p");
   prompt.className = "gallery-prompt";
+  const maker = document.createElement("p");
+  maker.className = "gallery-maker";
   const date = document.createElement("time");
-  caption.append(prompt, date);
+  caption.append(prompt, maker, date);
   card.append(caption);
 
   card.addEventListener("pointerdown", (event) => startDrag(event, id, card), true);
@@ -199,13 +218,19 @@ function createGalleryCard(id) {
       delete card.dataset.suppressClick;
     }
   });
+  const elements = { card, imageLink, image, prompt, maker, date };
   card.addEventListener("keydown", (event) => moveCardWithKeyboard(event, id, card));
-
-  return { card, imageLink, image, prompt, date };
+  return elements;
 }
 
 function startDrag(event, id, card) {
   if (!event.isPrimary || event.button !== 0) return;
+  if (!currentMaker || card.dataset.makerName !== currentMaker) {
+    galleryStatus.textContent = currentMaker
+      ? `Only ${card.dataset.makerName || "the recorded maker"} can move this picture.`
+      : "Reload the page and enter your name before moving pictures.";
+    return;
+  }
 
   const boardRect = gallery.getBoundingClientRect();
   const cardRect = card.getBoundingClientRect();
@@ -277,6 +302,13 @@ async function moveCardWithKeyboard(event, id, card) {
   };
   const direction = directions[event.key];
   if (!direction) return;
+  if (!currentMaker || card.dataset.makerName !== currentMaker) {
+    event.preventDefault();
+    galleryStatus.textContent = currentMaker
+      ? `Only ${card.dataset.makerName || "the recorded maker"} can move this picture.`
+      : "Reload the page and enter your name before moving pictures.";
+    return;
+  }
 
   event.preventDefault();
   const rect = gallery.getBoundingClientRect();
