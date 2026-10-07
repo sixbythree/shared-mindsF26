@@ -25,9 +25,11 @@ body {
 .app {
   position: relative;
   z-index: 2;
+  display: grid;
   width: 100%;
-  height: 100dvh;
+  min-height: 100dvh;
   padding: 1rem;
+  place-items: center;
   pointer-events: none;
 }
 
