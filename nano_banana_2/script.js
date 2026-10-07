@@ -173,9 +173,11 @@ function createGalleryCard(id) {
   const imageLink = document.createElement("a");
   imageLink.target = "_blank";
   imageLink.rel = "noopener noreferrer";
+  imageLink.draggable = false;
 
   const image = document.createElement("img");
   image.loading = "lazy";
+  image.draggable = false;
   imageLink.append(image);
   card.append(imageLink);
 
@@ -186,7 +188,8 @@ function createGalleryCard(id) {
   caption.append(prompt, date);
   card.append(caption);
 
-  card.addEventListener("pointerdown", (event) => startDrag(event, id, card));
+  card.addEventListener("pointerdown", (event) => startDrag(event, id, card), true);
+  card.addEventListener("dragstart", (event) => event.preventDefault());
   card.addEventListener("pointermove", moveDrag);
   card.addEventListener("pointerup", finishDrag);
   card.addEventListener("pointercancel", finishDrag);

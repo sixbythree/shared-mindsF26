@@ -250,6 +250,9 @@ button:disabled {
 
 .gallery-card > a {
   display: block;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-drag: none;
   background:
     linear-gradient(45deg, #1d251e 25%, transparent 25%),
     linear-gradient(-45deg, #1d251e 25%, transparent 25%),
@@ -263,7 +266,12 @@ button:disabled {
   display: block;
   width: 100%;
   aspect-ratio: 4 / 3;
+  cursor: grab;
   object-fit: cover;
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .gallery-card figcaption {
