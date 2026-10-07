@@ -1,0 +1,33 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /generatedImages/{imageId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll([
+          'prompt',
+          'imageUrl',
+          'model',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'prompt',
+          'imageUrl',
+          'model',
+          'createdAt'
+        ])
+        && request.resource.data.prompt is string
+        && request.resource.data.prompt.size() > 0
+        && request.resource.data.prompt.size() <= 2000
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.matches('^https://replicate\\.delivery/.*$')
+        && request.resource.data.model == 'google/nano-banana-2'
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
