@@ -131,7 +131,6 @@ async function saveImages(imageUrls, prompt) {
 function loadGallery() {
   imagesCollection
     .orderBy("createdAt", "desc")
-    .limit(30)
     .onSnapshot((snapshot) => {
       const visibleIds = new Set();
       galleryCount.textContent = `${snapshot.size} ${snapshot.size === 1 ? "image" : "images"}`;
