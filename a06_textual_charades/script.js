@@ -3,13 +3,7 @@ const GUESSER_MODEL = "openai/gpt-4o-mini";
 const EMBEDDING_MODEL = "beautyyuyanli/multilingual-e5-large:a06276a89f1a902d5fc225a9ca32b6e8e6292b7f3b136518878da97c458e2bad";
 const GAME_SECONDS = 90;
 const MAX_CLUES = 8;
-const WORDS = [
-  "cat", "dog", "ocean", "piano", "volcano", "candle", "bicycle", "umbrella", "castle", "garden",
-  "rocket", "library", "dragon", "pizza", "winter", "mirror", "bridge", "forest", "camera", "lighthouse",
-  "desert", "clock", "rainbow", "penguin", "kitchen", "guitar", "moon", "island", "train", "honey",
-  "snow", "circus", "pirate", "robot", "museum", "coffee", "spider", "wedding", "thunder", "balloon",
-  "elephant", "hospital", "diamond", "ghost", "mountain", "telescope", "butterfly", "airport", "cheese", "violin",
-];
+const WORDS = window.CHARADES_WORDS;
 
 const board = document.querySelector("#board");
 const targetMarker = document.querySelector("#target-marker");
@@ -81,7 +75,9 @@ auth.onAuthStateChanged(async (user) => {
   signedOutSection.hidden = Boolean(user);
   signedInSection.hidden = !user;
   authStatus.textContent = user ? `Signed in as ${user.email}` : "";
+  game.usedTargets = new Set();
   if (!user) return;
+  game.playedWordsLoading = loadPlayedWords(user.uid);
   const saved = await playersCollection.doc(user.uid).get().catch(() => null);
   game.bestScore = saved?.data()?.bestScore ?? 0;
   playingAs.textContent = firstName(user);
@@ -100,9 +96,10 @@ signInButton.addEventListener("click", async () => {
 
 signOutButton.addEventListener("click", () => auth.signOut());
 
-startForm.addEventListener("submit", (event) => {
+startForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!currentUser) return;
+  await game.playedWordsLoading;
   game.playerName = firstName(currentUser);
   intro.hidden = true;
   startGame();
@@ -192,7 +189,6 @@ function startGame() {
   game.wordsSolved = 0;
   game.timeLeft = GAME_SECONDS;
   game.active = true;
-  game.usedTargets.clear();
   scoreEl.textContent = "0";
   renderTimer();
   savePlayer(true);
@@ -262,7 +258,23 @@ function validateClue(clue) {
 
 function revealsTarget(text) {
   const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-  return words.some((word) => sameWord(word, game.target) || word.includes(game.target) || (word.length > 3 && game.target.includes(word)));
+  return words.some((word) => sameWord(word, game.target) || containsTarget(word) || (word.length > 3 && game.target.includes(word)));
+}
+
+// Short secret words hide inside unrelated words ("ant" in "giant", "ring" in "bring"),
+// so for them only clue words that start with the secret word count ("antelope", "ringtone").
+function containsTarget(word) {
+  return game.target.length < 5 ? word.startsWith(game.target) : word.includes(game.target);
+}
+
+// Words this player has already played, from their saved rounds, so new games skip them
+// until the whole list has been played (nextRound starts over once everything is used).
+async function loadPlayedWords(uid) {
+  const snapshot = await roundsCollection.where("uid", "==", uid).get().catch(() => null);
+  snapshot?.docs.forEach((doc) => {
+    const target = doc.data().target;
+    if (WORDS.includes(target)) game.usedTargets.add(target);
+  });
 }
 
 // The embedding model is multilingual, so a translated clue ("chatte" for cat) can't be told apart
