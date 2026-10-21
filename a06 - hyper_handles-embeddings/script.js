@@ -1,0 +1,463 @@
+const REPLICATE_PROXY_URL = "https://itp-ima-replicate-proxy.web.app/api/create_n_get";
+const GUESSER_MODEL = "openai/gpt-4o-mini";
+const EMBEDDING_MODEL = "beautyyuyanli/multilingual-e5-large:a06276a89f1a902d5fc225a9ca32b6e8e6292b7f3b136518878da97c458e2bad";
+const GAME_SECONDS = 90;
+const MAX_CLUES = 8;
+const WORDS = [
+  "cat", "dog", "ocean", "piano", "volcano", "candle", "bicycle", "umbrella", "castle", "garden",
+  "rocket", "library", "dragon", "pizza", "winter", "mirror", "bridge", "forest", "camera", "lighthouse",
+  "desert", "clock", "rainbow", "penguin", "kitchen", "guitar", "moon", "island", "train", "honey",
+  "snow", "circus", "pirate", "robot", "museum", "coffee", "spider", "wedding", "thunder", "balloon",
+  "elephant", "hospital", "diamond", "ghost", "mountain", "telescope", "butterfly", "airport", "cheese", "violin",
+];
+
+const board = document.querySelector("#board");
+const targetMarker = document.querySelector("#target-marker");
+const targetWordEl = document.querySelector("#target-word");
+const timerEl = document.querySelector("#timer");
+const scoreEl = document.querySelector("#score");
+const clueForm = document.querySelector("#clue-form");
+const clueInput = document.querySelector("#clue");
+const clueButton = document.querySelector("#clue-button");
+const skipButton = document.querySelector("#skip-button");
+const clueTrail = document.querySelector("#clue-trail");
+const resolutionInput = document.querySelector("#resolution");
+const resolutionValue = document.querySelector("#resolution-value");
+const resolutionNote = document.querySelector("#resolution-note");
+const statusMessage = document.querySelector("#status");
+const leaderboard = document.querySelector("#leaderboard");
+const roundFeed = document.querySelector("#round-feed");
+const intro = document.querySelector("#intro");
+const startForm = document.querySelector("#start-form");
+const nameInput = document.querySelector("#player-name");
+const gameOver = document.querySelector("#game-over");
+const finalScore = document.querySelector("#final-score");
+const finalDetail = document.querySelector("#final-detail");
+const againButton = document.querySelector("#again-button");
+
+const database = firebase.initializeApp(window.firebaseConfig).firestore();
+const playersCollection = database.collection("charadesPlayers");
+const roundsCollection = database.collection("charadesRounds");
+const playerId = getPlayerId();
+
+const game = {
+  playerName: "",
+  score: 0,
+  bestScore: 0,
+  wordsSolved: 0,
+  timeLeft: GAME_SECONDS,
+  timerId: null,
+  active: false,
+  busy: false,
+  target: "",
+  clues: [],
+  guesses: new Map(),
+  usedTargets: new Set(),
+};
+
+nameInput.value = readStorage("charadesName") ?? "";
+updateResolutionNote();
+listenToLeaderboard();
+listenToRoundFeed();
+
+startForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const name = nameInput.value.trim();
+  if (!name) return;
+  game.playerName = name;
+  writeStorage("charadesName", name);
+  const saved = await playersCollection.doc(playerId).get().catch(() => null);
+  game.bestScore = saved?.data()?.bestScore ?? 0;
+  intro.hidden = true;
+  startGame();
+});
+
+againButton.addEventListener("click", () => {
+  gameOver.hidden = true;
+  startGame();
+});
+
+resolutionInput.addEventListener("input", updateResolutionNote);
+
+skipButton.addEventListener("click", async () => {
+  if (!game.active || game.busy) return;
+  await recordRound(false, 0);
+  setStatus(`Skipped. The word was “${game.target}”.`);
+  nextRound();
+});
+
+clueForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!game.active || game.busy) return;
+
+  const clue = clueInput.value.trim().toLowerCase();
+  const problem = validateClue(clue);
+  if (problem) {
+    setStatus(problem, "error");
+    return;
+  }
+
+  game.clues.push(clue);
+  addClueToTrail(clue);
+  clueInput.value = "";
+  setBusy(true);
+  setStatus("The machine is guessing…");
+
+  try {
+    const resolution = Number(resolutionInput.value);
+    const [englishClue, guesses] = await Promise.all([translateToEnglish(clue), getGuesses(game.clues, resolution)]);
+    if (revealsTarget(englishClue)) {
+      game.clues.pop();
+      clueTrail.lastElementChild?.remove();
+      setStatus(`“${clue}” means “${englishClue}”: no translating “${game.target}”!`, "error");
+      return;
+    }
+    const freshGuesses = guesses.filter((word) => !game.guesses.has(word));
+    if (freshGuesses.length === 0) {
+      setStatus("No new guesses. Try a different angle.");
+      return;
+    }
+
+    setStatus("Measuring how close each guess is…");
+    const embeddings = await getEmbeddings([game.target, ...freshGuesses]);
+    const [targetEmbedding, ...guessEmbeddings] = embeddings;
+    freshGuesses.forEach((word, index) => {
+      game.guesses.set(word, { similarity: cosineSimilarity(targetEmbedding, guessEmbeddings[index]), clueIndex: game.clues.length - 1 });
+    });
+    layoutGuesses(resolution);
+
+    const hit = freshGuesses.find((word) => sameWord(word, game.target));
+    if (hit) {
+      await solveRound(hit);
+      return;
+    }
+
+    const closest = freshGuesses.reduce((best, word) => (game.guesses.get(word).similarity > game.guesses.get(best).similarity ? word : best));
+    setStatus(`Closest guess: “${closest}”. ${game.clues.length >= MAX_CLUES ? "Out of clues: skip to a new word." : "Give another clue."}`);
+  } catch (error) {
+    game.clues.pop();
+    clueTrail.lastElementChild?.remove();
+    setStatus(error instanceof Error ? error.message : "Something went wrong. Try again.", "error");
+  } finally {
+    setBusy(false);
+  }
+});
+
+function startGame() {
+  game.score = 0;
+  game.wordsSolved = 0;
+  game.timeLeft = GAME_SECONDS;
+  game.active = true;
+  game.usedTargets.clear();
+  scoreEl.textContent = "0";
+  renderTimer();
+  savePlayer(true);
+  nextRound();
+  setBusy(false);
+  clearInterval(game.timerId);
+  game.timerId = setInterval(tick, 1000);
+}
+
+function tick() {
+  // The clock pauses while the models think so slow responses don't cost the player time.
+  if (game.busy) return;
+  game.timeLeft -= 1;
+  renderTimer();
+  if (game.timeLeft <= 0) endGame();
+}
+
+async function endGame() {
+  clearInterval(game.timerId);
+  game.active = false;
+  setBusy(false);
+  if (game.clues.length > 0) await recordRound(false, 0);
+  game.bestScore = Math.max(game.bestScore, game.score);
+  savePlayer(false);
+  finalScore.textContent = `${game.score} ${game.score === 1 ? "point" : "points"}`;
+  finalDetail.textContent = `You got the machine to say ${game.wordsSolved} ${game.wordsSolved === 1 ? "word" : "words"}. The last word was “${game.target}”.`;
+  gameOver.hidden = false;
+}
+
+function nextRound() {
+  if (game.usedTargets.size >= WORDS.length) game.usedTargets.clear();
+  const remaining = WORDS.filter((word) => !game.usedTargets.has(word));
+  game.target = remaining[Math.floor(Math.random() * remaining.length)];
+  game.usedTargets.add(game.target);
+  game.clues = [];
+  game.guesses.clear();
+  clueTrail.replaceChildren();
+  board.querySelectorAll(".guess").forEach((element) => element.remove());
+  targetWordEl.textContent = game.target;
+  targetMarker.textContent = game.target;
+  targetMarker.classList.remove("solved");
+  clueInput.focus();
+}
+
+async function solveRound(word) {
+  const points = Math.max(1, 6 - game.clues.length);
+  game.score += points;
+  game.wordsSolved += 1;
+  scoreEl.textContent = String(game.score);
+  targetMarker.classList.add("solved");
+  board.querySelector(`.guess[data-word="${CSS.escape(word)}"]`)?.classList.add("hit");
+  setStatus(`Got it! The machine said “${word}” after ${game.clues.length} ${game.clues.length === 1 ? "clue" : "clues"}. +${points}`, "success");
+  await Promise.all([recordRound(true, points), savePlayer(true)]);
+  await wait(1400);
+  if (game.active) nextRound();
+}
+
+function validateClue(clue) {
+  if (!clue) return "Type a clue first.";
+  if (game.clues.length >= MAX_CLUES) return "That's all the clues for this word. Skip to try another.";
+  if (revealsTarget(clue)) return `No saying “${game.target}” or part of it!`;
+  if (game.clues.includes(clue)) return "You already gave that clue.";
+  return "";
+}
+
+function revealsTarget(text) {
+  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  return words.some((word) => sameWord(word, game.target) || word.includes(game.target) || (word.length > 3 && game.target.includes(word)));
+}
+
+// The embedding model is multilingual, so a translated clue ("chatte" for cat) can't be told apart
+// from a related word by similarity alone; translating first lets the same rule catch it.
+async function translateToEnglish(clue) {
+  const prompt = [
+    "Translate this text into plain English, word for word.",
+    "Words may come from any language (French, Spanish, Japanese, etc.) even when they look like English.",
+    "If it is already English, return it unchanged. Expand transliterations from other scripts into English (neko -> cat).",
+    `Text: "${clue}". Respond with only the English text, lowercase.`,
+  ].join(" ");
+  const prediction = await runModel({ model: GUESSER_MODEL, input: { prompt, temperature: 0 } });
+  const text = Array.isArray(prediction.output) ? prediction.output.join("") : String(prediction.output ?? "");
+  return text.trim().toLowerCase().replace(/^["']|["'.]$/g, "");
+}
+
+async function getGuesses(clues, resolution) {
+  const count = guessCount(resolution);
+  const prompt = [
+    "You are the guesser in a game of charades played with words.",
+    "The other player is describing a single secret word without saying it.",
+    `Their clues so far, in order: ${clues.map((clue) => `"${clue}"`).join(", ")}.`,
+    `Give ${count} different single-word guesses for the secret word, most likely first.`,
+    "Respond with only a JSON array of lowercase words.",
+  ].join(" ");
+  const prediction = await runModel({ model: GUESSER_MODEL, input: { prompt, temperature: guessTemperature(resolution) } });
+  const text = Array.isArray(prediction.output) ? prediction.output.join("") : String(prediction.output ?? "");
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error("The guesser's answer couldn't be read. Try again.");
+
+  const clueWords = new Set(clues.flatMap((clue) => clue.split(/[^a-z]+/)));
+  const words = JSON.parse(match[0])
+    .map((word) => String(word).toLowerCase().trim())
+    .filter((word) => /^[a-z][a-z-]*$/.test(word) && !clueWords.has(word));
+  return [...new Set(words)].slice(0, count);
+}
+
+async function getEmbeddings(texts) {
+  const prediction = await runModel({ version: EMBEDDING_MODEL, input: { texts: JSON.stringify(texts) } });
+  if (!Array.isArray(prediction.output) || prediction.output.length !== texts.length) {
+    throw new Error("The embedding model returned an unexpected result. Try again.");
+  }
+  return prediction.output;
+}
+
+async function runModel(body) {
+  const response = await fetch(REPLICATE_PROXY_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const prediction = await response.json().catch(() => null);
+  if (!response.ok || prediction?.status === "failed" || prediction?.error) {
+    const detail = prediction?.detail ?? prediction?.error;
+    throw new Error(typeof detail === "string" ? detail : `The model request failed (HTTP ${response.status}).`);
+  }
+  return prediction;
+}
+
+function layoutGuesses(resolution) {
+  const similarities = [...game.guesses.values()].map((guess) => guess.similarity);
+  const min = Math.min(...similarities);
+  const max = Math.max(...similarities);
+  const spread = 0.45 + resolution * 0.055;
+  const maxRadius = Math.min(board.clientWidth, board.clientHeight) * 0.46;
+
+  for (const [word, guess] of game.guesses) {
+    let element = board.querySelector(`.guess[data-word="${CSS.escape(word)}"]`);
+    if (!element) {
+      element = document.createElement("span");
+      element.className = "guess";
+      element.dataset.word = word;
+      element.textContent = word;
+      element.style.setProperty("--clue-hue", String((guess.clueIndex * 47) % 360));
+      guess.angle = Math.random() * Math.PI * 2;
+      guess.jitter = (Math.random() - 0.5) * 0.12 * resolution / 10;
+      board.append(element);
+    }
+    const closeness = max === min ? 0.5 : (guess.similarity - min) / (max - min);
+    const radius = maxRadius * (0.16 + (1 - closeness + guess.jitter) * 0.84 * spread);
+    element.style.transform = `translate(calc(-50% + ${Math.cos(guess.angle) * radius}px), calc(-50% + ${Math.sin(guess.angle) * radius * 0.82}px))`;
+    element.style.fontSize = `${0.8 + closeness * 0.7}rem`;
+    element.title = `similarity ${guess.similarity.toFixed(3)}`;
+  }
+}
+
+function cosineSimilarity(a, b) {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+function sameWord(a, b) {
+  const normalize = (word) => word.toLowerCase().replace(/[^a-z]/g, "").replace(/(es|s)$/, "");
+  return normalize(a) === normalize(b);
+}
+
+function guessCount(resolution) {
+  return 3 + resolution * 2;
+}
+
+function guessTemperature(resolution) {
+  return Math.round((0.2 + resolution * 0.12) * 100) / 100;
+}
+
+function updateResolutionNote() {
+  const resolution = Number(resolutionInput.value);
+  resolutionValue.textContent = String(resolution);
+  resolutionNote.textContent = `${guessCount(resolution)} guesses · temperature ${guessTemperature(resolution)}`;
+}
+
+function addClueToTrail(clue) {
+  const item = document.createElement("li");
+  item.textContent = clue;
+  item.style.setProperty("--clue-hue", String(((game.clues.length - 1) * 47) % 360));
+  clueTrail.append(item);
+}
+
+function setBusy(isBusy) {
+  game.busy = isBusy;
+  const disabled = isBusy || !game.active;
+  clueInput.disabled = disabled;
+  clueButton.disabled = disabled;
+  skipButton.disabled = disabled;
+  board.classList.toggle("thinking", isBusy);
+  if (!disabled) clueInput.focus();
+}
+
+function setStatus(message, kind = "info") {
+  statusMessage.textContent = message;
+  statusMessage.dataset.kind = kind;
+}
+
+function renderTimer() {
+  timerEl.textContent = `:${String(Math.max(0, game.timeLeft)).padStart(2, "0")}`;
+  timerEl.classList.toggle("low", game.timeLeft <= 10);
+}
+
+function savePlayer(playing) {
+  return playersCollection.doc(playerId).set({
+    name: game.playerName,
+    score: game.score,
+    bestScore: Math.max(game.bestScore, game.score),
+    playing,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  }).catch((error) => console.warn("Couldn't save player", error));
+}
+
+function recordRound(solved, points) {
+  return roundsCollection.add({
+    playerName: game.playerName,
+    target: game.target,
+    clues: game.clues.slice(0, MAX_CLUES),
+    solved,
+    points,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+  }).catch((error) => console.warn("Couldn't record round", error));
+}
+
+function listenToLeaderboard() {
+  playersCollection.orderBy("bestScore", "desc").limit(12).onSnapshot((snapshot) => {
+    if (snapshot.empty) {
+      leaderboard.replaceChildren(mutedItem("No players yet."));
+      return;
+    }
+    leaderboard.replaceChildren(...snapshot.docs.map((doc) => {
+      const player = doc.data();
+      const item = document.createElement("li");
+      const name = document.createElement("span");
+      name.textContent = player.name;
+      if (player.playing) name.classList.add("live");
+      if (doc.id === playerId) name.classList.add("you");
+      const score = document.createElement("span");
+      score.className = "muted";
+      score.textContent = player.playing ? `${player.score} now · best ${player.bestScore}` : `best ${player.bestScore}`;
+      item.append(name, score);
+      return item;
+    }));
+  }, (error) => leaderboard.replaceChildren(mutedItem(`Couldn't load players: ${error.message}`)));
+}
+
+function listenToRoundFeed() {
+  roundsCollection.orderBy("createdAt", "desc").limit(10).onSnapshot((snapshot) => {
+    if (snapshot.empty) {
+      roundFeed.replaceChildren(mutedItem("No rounds yet."));
+      return;
+    }
+    roundFeed.replaceChildren(...snapshot.docs.map((doc) => {
+      const round = doc.data();
+      const item = document.createElement("li");
+      const headline = document.createElement("strong");
+      headline.textContent = round.solved
+        ? `${round.playerName} got “${round.target}” (+${round.points})`
+        : `${round.playerName} missed “${round.target}”`;
+      const clues = document.createElement("span");
+      clues.className = "muted";
+      clues.textContent = round.clues.length ? round.clues.join(" → ") : "no clues";
+      item.append(headline, clues);
+      if (round.solved) item.classList.add("solved");
+      return item;
+    }));
+  }, (error) => roundFeed.replaceChildren(mutedItem(`Couldn't load rounds: ${error.message}`)));
+}
+
+function mutedItem(text) {
+  const item = document.createElement("li");
+  item.className = "muted";
+  item.textContent = text;
+  return item;
+}
+
+function getPlayerId() {
+  const saved = readStorage("charadesPlayerId");
+  if (saved) return saved;
+  const id = crypto.randomUUID();
+  writeStorage("charadesPlayerId", id);
+  return id;
+}
+
+function readStorage(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage can be unavailable in private windows; the game still works without it.
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

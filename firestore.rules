@@ -50,6 +50,69 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /charadesPlayers/{playerId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.keys().hasOnly([
+          'name',
+          'score',
+          'bestScore',
+          'playing',
+          'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'name',
+          'score',
+          'bestScore',
+          'playing',
+          'updatedAt'
+        ])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.score is int
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 1000
+        && request.resource.data.bestScore is int
+        && request.resource.data.bestScore >= request.resource.data.score
+        && request.resource.data.bestScore <= 1000
+        && request.resource.data.playing is bool
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /charadesRounds/{roundId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly([
+          'playerName',
+          'target',
+          'clues',
+          'solved',
+          'points',
+          'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'playerName',
+          'target',
+          'clues',
+          'solved',
+          'points',
+          'createdAt'
+        ])
+        && request.resource.data.playerName is string
+        && request.resource.data.playerName.size() > 0
+        && request.resource.data.playerName.size() <= 40
+        && request.resource.data.target is string
+        && request.resource.data.target.size() <= 40
+        && request.resource.data.clues is list
+        && request.resource.data.clues.size() <= 8
+        && request.resource.data.solved is bool
+        && request.resource.data.points is int
+        && request.resource.data.points >= 0
+        && request.resource.data.points <= 5
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

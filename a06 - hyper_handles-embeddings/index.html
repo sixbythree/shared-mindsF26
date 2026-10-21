@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Textual charades: describe a secret word without saying it and watch a machine guess through embeddings.">
+  <title>Textual Charades — Shared Minds</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="firebase-config.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div id="board" class="board" aria-label="Guess map: closer to the center means closer in meaning to the secret word">
+    <div class="rings" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div id="target-marker" class="target-marker">?</div>
+  </div>
+
+  <header class="hud">
+    <a class="back-link" href="../">&larr; All projects</a>
+    <div class="hud-card">
+      <span class="hud-label">Secret word</span>
+      <strong id="target-word" class="target-word">—</strong>
+    </div>
+    <div class="hud-card">
+      <span class="hud-label">Time</span>
+      <strong id="timer" class="hud-value">:90</strong>
+    </div>
+    <div class="hud-card">
+      <span class="hud-label">Score</span>
+      <strong id="score" class="hud-value">0</strong>
+    </div>
+  </header>
+
+  <aside class="side-panel">
+    <section>
+      <h2>Players</h2>
+      <ol id="leaderboard" class="leaderboard"><li class="muted">Loading…</li></ol>
+    </section>
+    <section>
+      <h2>Recent rounds</h2>
+      <ul id="round-feed" class="round-feed"><li class="muted">Loading…</li></ul>
+    </section>
+  </aside>
+
+  <form id="clue-form" class="clue-form">
+    <ol id="clue-trail" class="clue-trail" aria-label="Clues given this round"></ol>
+    <div class="clue-row">
+      <label class="visually-hidden" for="clue">Your clue</label>
+      <input id="clue" name="clue" maxlength="40" autocomplete="off" placeholder="Describe it without saying it…" disabled>
+      <button id="clue-button" type="submit" disabled>Clue</button>
+      <button id="skip-button" type="button" class="secondary" disabled>Skip</button>
+    </div>
+    <div class="resolution-row">
+      <label for="resolution">Resolution</label>
+      <input id="resolution" type="range" min="1" max="10" value="5">
+      <output id="resolution-value" for="resolution">5</output>
+      <span class="muted" id="resolution-note"></span>
+    </div>
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+  </form>
+
+  <div id="intro" class="overlay">
+    <form id="start-form" class="overlay-card">
+      <p class="eyebrow">Shared Minds · Assignment 6</p>
+      <h1>Textual Charades</h1>
+      <p>You get a secret word. Type clues without saying it. The machine guesses, and every guess lands on the board by how close its <em>embedding</em> is to the secret word. Get the machine to say your word before time runs out.</p>
+      <p class="muted">Resolution sets how many guesses come back and how freely they wander.</p>
+      <label for="player-name">Your name</label>
+      <input id="player-name" maxlength="40" autocomplete="nickname" required>
+      <button type="submit">Start</button>
+    </form>
+  </div>
+
+  <div id="game-over" class="overlay" hidden>
+    <div class="overlay-card">
+      <p class="eyebrow">Time's up</p>
+      <h1 id="final-score">0 points</h1>
+      <p id="final-detail" class="muted"></p>
+      <button id="again-button" type="button">Play again</button>
+    </div>
+  </div>
+</body>
+</html>
