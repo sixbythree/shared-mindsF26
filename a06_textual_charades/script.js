@@ -30,6 +30,9 @@ const roundFeed = document.querySelector("#round-feed");
 const intro = document.querySelector("#intro");
 const startForm = document.querySelector("#start-form");
 const playingAs = document.querySelector("#playing-as");
+const sidePanel = document.querySelector("#side-panel");
+const playersToggle = document.querySelector("#players-toggle");
+const playersClose = document.querySelector("#players-close");
 const signedOutSection = document.querySelector("#signed-out");
 const signedInSection = document.querySelector("#signed-in");
 const signInButton = document.querySelector("#sign-in-button");
@@ -111,6 +114,13 @@ againButton.addEventListener("click", () => {
 });
 
 resolutionInput.addEventListener("input", updateResolutionNote);
+
+// On phones the leaderboard is a slide-in panel instead of a column.
+playersToggle.addEventListener("click", () => setPlayersOpen(!sidePanel.classList.contains("open")));
+playersClose.addEventListener("click", () => setPlayersOpen(false));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") setPlayersOpen(false);
+});
 
 skipButton.addEventListener("click", async () => {
   if (!game.active || game.busy) return;
@@ -418,6 +428,11 @@ function addClueToTrail(clue) {
   item.textContent = clue;
   item.dataset.clue = String((game.clues.length - 1) % 4);
   clueTrail.append(item);
+}
+
+function setPlayersOpen(open) {
+  sidePanel.classList.toggle("open", open);
+  playersToggle.setAttribute("aria-expanded", String(open));
 }
 
 function setBusy(isBusy) {

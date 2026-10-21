@@ -17,7 +17,7 @@
 </head>
 <body>
   <div id="board" class="board" aria-label="Guess map: closer to the center means closer in meaning to the secret word">
-    <div class="rings" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="rings" aria-hidden="true"><span></span><span></span><span></span><i class="ripple"></i><i class="ripple"></i><i class="ripple"></i></div>
     <div id="target-marker" class="target-marker">?</div>
   </div>
 
@@ -35,9 +35,11 @@
       <span class="hud-label">Score</span>
       <strong id="score" class="hud-value">0</strong>
     </div>
+    <button id="players-toggle" class="players-toggle secondary" type="button" aria-controls="side-panel" aria-expanded="false">Players</button>
   </header>
 
-  <aside class="side-panel">
+  <aside id="side-panel" class="side-panel">
+    <button id="players-close" class="players-close secondary" type="button" aria-label="Hide players">&times;</button>
     <section>
       <h2>Players</h2>
       <ol id="leaderboard" class="leaderboard"><li class="muted">Loading…</li></ol>
