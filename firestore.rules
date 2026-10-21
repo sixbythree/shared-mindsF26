@@ -71,6 +71,7 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 40
+        && request.resource.data.name == request.auth.token.name.split(' ')[0]
         && request.resource.data.score is int
         && request.resource.data.score >= 0
         && request.resource.data.score <= 1000
@@ -107,6 +108,7 @@ service cloud.firestore {
         && request.resource.data.playerName is string
         && request.resource.data.playerName.size() > 0
         && request.resource.data.playerName.size() <= 40
+        && request.resource.data.playerName == request.auth.token.name.split(' ')[0]
         && request.resource.data.target is string
         && request.resource.data.target.size() <= 40
         && request.resource.data.clues is list

@@ -291,6 +291,12 @@ button:focus-visible {
   font-weight: 600;
 }
 
+/* Players who share a first name are told apart by color. */
+.shared-name {
+  color: var(--clue);
+  font-weight: 600;
+}
+
 .round-feed li {
   display: grid;
   gap: 0.2rem;

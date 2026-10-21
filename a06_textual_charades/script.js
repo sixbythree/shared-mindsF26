@@ -29,7 +29,7 @@ const leaderboard = document.querySelector("#leaderboard");
 const roundFeed = document.querySelector("#round-feed");
 const intro = document.querySelector("#intro");
 const startForm = document.querySelector("#start-form");
-const nameInput = document.querySelector("#player-name");
+const playingAs = document.querySelector("#playing-as");
 const signedOutSection = document.querySelector("#signed-out");
 const signedInSection = document.querySelector("#signed-in");
 const signInButton = document.querySelector("#sign-in-button");
@@ -48,6 +48,9 @@ const roundsCollection = database.collection("charadesRounds");
 const LIVE_WINDOW_MS = 3 * 60 * 1000;
 // Players sign in with Google; their leaderboard row is keyed by their account ID.
 let currentUser = null;
+// Players who share a first name get different colors (uid → color index).
+const nameColors = new Map();
+let latestRounds = [];
 
 const game = {
   playerName: "",
@@ -76,7 +79,7 @@ auth.onAuthStateChanged(async (user) => {
   if (!user) return;
   const saved = await playersCollection.doc(user.uid).get().catch(() => null);
   game.bestScore = saved?.data()?.bestScore ?? 0;
-  nameInput.value = saved?.data()?.name ?? user.displayName ?? "";
+  playingAs.textContent = firstName(user);
 });
 
 signInButton.addEventListener("click", async () => {
@@ -94,9 +97,8 @@ signOutButton.addEventListener("click", () => auth.signOut());
 
 startForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  const name = nameInput.value.trim().replace(/\s+/g, " ");
-  if (!currentUser || !name) return;
-  game.playerName = name;
+  if (!currentUser) return;
+  game.playerName = firstName(currentUser);
   intro.hidden = true;
   startGame();
 });
@@ -455,11 +457,12 @@ function listenToLeaderboard() {
       leaderboard.replaceChildren(mutedItem("No players yet."));
       return;
     }
+    assignNameColors(snapshot.docs);
+    renderRoundFeed();
     leaderboard.replaceChildren(...snapshot.docs.map((doc) => {
       const player = doc.data();
       const item = document.createElement("li");
-      const name = document.createElement("span");
-      name.textContent = player.name;
+      const name = nameLabel(player.name, doc.id);
       const live = player.playing && Date.now() - (player.updatedAt?.toMillis() ?? 0) < LIVE_WINDOW_MS;
       if (live) name.classList.add("live");
       if (doc.id === currentUser?.uid) name.classList.add("you");
@@ -474,25 +477,58 @@ function listenToLeaderboard() {
 
 function listenToRoundFeed() {
   roundsCollection.orderBy("createdAt", "desc").limit(10).onSnapshot((snapshot) => {
-    if (snapshot.empty) {
-      roundFeed.replaceChildren(mutedItem("No rounds yet."));
-      return;
-    }
-    roundFeed.replaceChildren(...snapshot.docs.map((doc) => {
-      const round = doc.data();
-      const item = document.createElement("li");
-      const headline = document.createElement("strong");
-      headline.textContent = round.solved
-        ? `${round.playerName} got “${round.target}” (+${round.points})`
-        : `${round.playerName} missed “${round.target}”`;
-      const clues = document.createElement("span");
-      clues.className = "muted";
-      clues.textContent = round.clues.length ? round.clues.join(" → ") : "no clues";
-      item.append(headline, clues);
-      if (round.solved) item.classList.add("solved");
-      return item;
-    }));
+    latestRounds = snapshot.docs.map((doc) => doc.data());
+    renderRoundFeed();
   }, (error) => roundFeed.replaceChildren(mutedItem(`Couldn't load rounds: ${error.message}`)));
+}
+
+function renderRoundFeed() {
+  if (latestRounds.length === 0) {
+    roundFeed.replaceChildren(mutedItem("No rounds yet."));
+    return;
+  }
+  roundFeed.replaceChildren(...latestRounds.map((round) => {
+    const item = document.createElement("li");
+    const headline = document.createElement("strong");
+    headline.append(
+      nameLabel(round.playerName, round.uid),
+      round.solved ? ` got “${round.target}” (+${round.points})` : ` missed “${round.target}”`,
+    );
+    const clues = document.createElement("span");
+    clues.className = "muted";
+    clues.textContent = round.clues.length ? round.clues.join(" → ") : "no clues";
+    item.append(headline, clues);
+    if (round.solved) item.classList.add("solved");
+    return item;
+  }));
+}
+
+function assignNameColors(playerDocs) {
+  const byName = new Map();
+  for (const doc of playerDocs) {
+    const key = doc.data().name.toLowerCase();
+    byName.set(key, [...(byName.get(key) ?? []), doc.id]);
+  }
+  nameColors.clear();
+  for (const uids of byName.values()) {
+    if (uids.length < 2) continue;
+    [...uids].sort().forEach((uid, index) => nameColors.set(uid, index % 4));
+  }
+}
+
+function nameLabel(name, uid) {
+  const label = document.createElement("span");
+  label.textContent = name;
+  if (nameColors.has(uid)) {
+    label.classList.add("shared-name");
+    label.dataset.clue = String(nameColors.get(uid));
+  }
+  return label;
+}
+
+// Must match firestore.rules, which checks the name against the Google account's first name.
+function firstName(user) {
+  return (user.displayName ?? "").split(" ")[0] || "Player";
 }
 
 function mutedItem(text) {
