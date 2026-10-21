@@ -52,7 +52,9 @@ service cloud.firestore {
 
     match /charadesPlayers/{playerId} {
       allow read: if true;
-      allow create, update: if request.resource.data.keys().hasOnly([
+      allow create, update: if request.auth != null
+        && request.auth.uid == playerId
+        && request.resource.data.keys().hasOnly([
           'name',
           'score',
           'bestScore',
@@ -69,8 +71,6 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 40
-        && request.resource.data.name.matches('^[\\p{L}\\p{N}_-]+( [\\p{L}\\p{N}_-]+)*$')
-        && playerId == request.resource.data.name.lower().replace(' ', '-')
         && request.resource.data.score is int
         && request.resource.data.score >= 0
         && request.resource.data.score <= 1000
@@ -84,7 +84,10 @@ service cloud.firestore {
 
     match /charadesRounds/{roundId} {
       allow read: if true;
-      allow create: if request.resource.data.keys().hasOnly([
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'uid',
           'playerName',
           'target',
           'clues',
@@ -93,6 +96,7 @@ service cloud.firestore {
           'createdAt'
         ])
         && request.resource.data.keys().hasAll([
+          'uid',
           'playerName',
           'target',
           'clues',

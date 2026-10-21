@@ -432,6 +432,28 @@ button:focus-visible {
   padding: 0.8rem 1.6rem;
 }
 
+.auth-section {
+  display: grid;
+  gap: inherit;
+}
+
+.auth-section[hidden] {
+  display: none;
+}
+
+.auth-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.auth-status {
+  font-size: 0.8rem;
+}
+
+.auth-status:empty {
+  display: none;
+}
+
 @media (max-width: 860px) {
   body {
     overflow: auto;

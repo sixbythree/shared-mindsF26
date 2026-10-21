@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
   <script src="firebase-config.js" defer></script>
   <script src="script.js" defer></script>
 </head>
@@ -70,9 +71,18 @@
       <h1>Textual<br>Charades</h1>
       <p>You get a secret word. Type clues without saying it. The machine guesses, and every guess lands on the board by how close its <em>embedding</em> is to the secret word. Get the machine to say your word before time runs out.</p>
       <p class="muted">Resolution sets how many guesses come back and how freely they wander.</p>
-      <label for="player-name" class="eyebrow">Your name</label>
-      <input id="player-name" maxlength="40" autocomplete="nickname" required>
-      <button type="submit">Start playing</button>
+      <div id="signed-out" class="auth-section">
+        <button id="sign-in-button" type="button">Sign in with Google</button>
+      </div>
+      <div id="signed-in" class="auth-section" hidden>
+        <label for="player-name" class="eyebrow">Your name on the leaderboard</label>
+        <input id="player-name" maxlength="40" autocomplete="nickname" required>
+        <div class="auth-actions">
+          <button type="submit">Start playing</button>
+          <button id="sign-out-button" type="button" class="secondary">Sign out</button>
+        </div>
+      </div>
+      <p id="auth-status" class="auth-status muted" role="status" aria-live="polite"></p>
     </form>
   </div>
 

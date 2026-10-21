@@ -30,18 +30,24 @@ const roundFeed = document.querySelector("#round-feed");
 const intro = document.querySelector("#intro");
 const startForm = document.querySelector("#start-form");
 const nameInput = document.querySelector("#player-name");
+const signedOutSection = document.querySelector("#signed-out");
+const signedInSection = document.querySelector("#signed-in");
+const signInButton = document.querySelector("#sign-in-button");
+const signOutButton = document.querySelector("#sign-out-button");
+const authStatus = document.querySelector("#auth-status");
 const gameOver = document.querySelector("#game-over");
 const finalScore = document.querySelector("#final-score");
 const finalDetail = document.querySelector("#final-detail");
 const againButton = document.querySelector("#again-button");
 
-const database = firebase.initializeApp(window.firebaseConfig).firestore();
+const app = firebase.initializeApp(window.firebaseConfig);
+const database = app.firestore();
+const auth = app.auth();
 const playersCollection = database.collection("charadesPlayers");
 const roundsCollection = database.collection("charadesRounds");
-// Players are keyed by their lowercased name, so the same name is one leaderboard row on every device.
-const NAME_PATTERN = /^[\p{L}\p{N}_-]+( [\p{L}\p{N}_-]+)*$/u;
 const LIVE_WINDOW_MS = 3 * 60 * 1000;
-let playerId = "";
+// Players sign in with Google; their leaderboard row is keyed by their account ID.
+let currentUser = null;
 
 const game = {
   playerName: "",
@@ -58,25 +64,39 @@ const game = {
   usedTargets: new Set(),
 };
 
-nameInput.value = readStorage("charadesName") ?? "";
-nameInput.addEventListener("input", () => nameInput.setCustomValidity(""));
 updateResolutionNote();
 listenToLeaderboard();
 listenToRoundFeed();
 
-startForm.addEventListener("submit", async (event) => {
+auth.onAuthStateChanged(async (user) => {
+  currentUser = user;
+  signedOutSection.hidden = Boolean(user);
+  signedInSection.hidden = !user;
+  authStatus.textContent = user ? `Signed in as ${user.email}` : "";
+  if (!user) return;
+  const saved = await playersCollection.doc(user.uid).get().catch(() => null);
+  game.bestScore = saved?.data()?.bestScore ?? 0;
+  nameInput.value = saved?.data()?.name ?? user.displayName ?? "";
+});
+
+signInButton.addEventListener("click", async () => {
+  authStatus.textContent = "";
+  try {
+    await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  } catch (error) {
+    if (error.code !== "auth/popup-closed-by-user" && error.code !== "auth/cancelled-popup-request") {
+      authStatus.textContent = `Couldn't sign in: ${error.message}`;
+    }
+  }
+});
+
+signOutButton.addEventListener("click", () => auth.signOut());
+
+startForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = nameInput.value.trim().replace(/\s+/g, " ");
-  if (!NAME_PATTERN.test(name)) {
-    nameInput.setCustomValidity("Use letters, numbers, spaces, - or _.");
-    nameInput.reportValidity();
-    return;
-  }
+  if (!currentUser || !name) return;
   game.playerName = name;
-  playerId = playerKey(name);
-  writeStorage("charadesName", name);
-  const saved = await playersCollection.doc(playerId).get().catch(() => null);
-  game.bestScore = saved?.data()?.bestScore ?? 0;
   intro.hidden = true;
   startGame();
 });
@@ -408,7 +428,7 @@ function renderTimer() {
 }
 
 function savePlayer(playing) {
-  return playersCollection.doc(playerId).set({
+  return playersCollection.doc(currentUser.uid).set({
     name: game.playerName,
     score: game.score,
     bestScore: Math.max(game.bestScore, game.score),
@@ -419,6 +439,7 @@ function savePlayer(playing) {
 
 function recordRound(solved, points) {
   return roundsCollection.add({
+    uid: currentUser.uid,
     playerName: game.playerName,
     target: game.target,
     clues: game.clues.slice(0, MAX_CLUES),
@@ -441,7 +462,7 @@ function listenToLeaderboard() {
       name.textContent = player.name;
       const live = player.playing && Date.now() - (player.updatedAt?.toMillis() ?? 0) < LIVE_WINDOW_MS;
       if (live) name.classList.add("live");
-      if (doc.id === playerId) name.classList.add("you");
+      if (doc.id === currentUser?.uid) name.classList.add("you");
       const score = document.createElement("span");
       score.className = "muted";
       score.textContent = live ? `${player.score} now · best ${player.bestScore}` : `best ${player.bestScore}`;
@@ -481,26 +502,7 @@ function mutedItem(text) {
   return item;
 }
 
-// Must match the document ID rule in firestore.rules: lowercased, spaces as hyphens.
-function playerKey(name) {
-  return name.toLowerCase().replaceAll(" ", "-");
-}
 
-function readStorage(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Storage can be unavailable in private windows; the game still works without it.
-  }
-}
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
