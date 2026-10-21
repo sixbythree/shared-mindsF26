@@ -16,7 +16,10 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 - Player gets a secret word (90s game), types clues without saying it; `openai/gpt-4o-mini` guesses; guesses are placed on a radial board by `multilingual-e5-large` cosine similarity to the secret word.
 - Resolution slider (1–10) → guess count (5–23), guesser temperature, board spread.
 - Translated clues are blocked: each clue is translated to English by the LLM in parallel with guessing, then the "no saying the word" rule runs on the English.
-- Firestore collections: `charadesPlayers` (live leaderboard), `charadesRounds` (recent-rounds feed). Rules deployed 2026-10-21.
+- Firestore collections: `charadesPlayers` (live leaderboard, one row per Google account ID), `charadesRounds` (recent-rounds feed, records uid and resolution). Rules deployed 2026-10-21.
+- Google sign-in (Firebase Auth, provider enabled; `sixbythree.github.io` authorized). Players show under their Google first name (rules enforce it); shared first names get different colors.
+- Scoring: clue points (5 → 1) × resolution multiplier (×3 at 1 → ×1 at 10); the hottest resolution used in the round counts.
+- Mobile: no page scroll; leaderboard is a slide-in panel. Board rings animate like water ripples.
 - Clock pauses while models are thinking.
 - Six brand design (light theme only). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/
 - Portfolio post: https://www.six-hq.com/itp/semester-3/shared-minds/06-textual-charades (source in the portfolio repo, `content/itp/semester-3/shared-minds/`). Only numbered assignments go in the portfolio; bouncing_ball and nano_banana_2 are classwork and stay out.
