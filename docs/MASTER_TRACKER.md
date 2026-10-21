@@ -23,6 +23,8 @@
   - [x] Board centered in the space left of the leaderboard (desktop)
   - [x] Mobile: no page scroll; leaderboard as a slide-in panel (Players button)
   - [x] Water-ripple ring animation (off with reduced motion)
+  - [x] 367-word list (`words.js`); per-player no-repeat history from saved rounds
+  - [x] Fairer clue check for short secret words ("giant" allowed for ant)
 
 ## In progress
 - (none)

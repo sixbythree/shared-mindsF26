@@ -20,6 +20,7 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 - Google sign-in (Firebase Auth, provider enabled; `sixbythree.github.io` authorized). Players show under their Google first name (rules enforce it); shared first names get different colors.
 - Scoring: clue points (5 → 1) × resolution multiplier (×3 at 1 → ×1 at 10); the hottest resolution used in the round counts.
 - Mobile: no page scroll; leaderboard is a slide-in panel. Board rings animate like water ripples.
+- 367 secret words in `words.js`. On sign-in the game loads the player's played words from `charadesRounds` (by uid) and skips them until the list is exhausted.
 - Clock pauses while models are thinking.
 - Six brand design (light theme only). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/
 - Portfolio post: https://www.six-hq.com/itp/semester-3/shared-minds/06-textual-charades (source in the portfolio repo, `content/itp/semester-3/shared-minds/`). Only numbered assignments go in the portfolio; bouncing_ball and nano_banana_2 are classwork and stay out.
