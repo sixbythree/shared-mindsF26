@@ -112,9 +112,10 @@ button:focus-visible {
 
 /* Board */
 
+/* The board stops at the leaderboard, so the target sits centered in the open space (like the clue form). */
 .board {
   position: fixed;
-  inset: 0;
+  inset: 0 18rem 0 0;
 }
 
 .rings span {
@@ -477,6 +478,7 @@ button:focus-visible {
 
   .board {
     position: absolute;
+    right: 0;
     height: 100vh;
   }
 }
