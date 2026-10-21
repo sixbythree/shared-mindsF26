@@ -94,6 +94,7 @@ service cloud.firestore {
           'clues',
           'solved',
           'points',
+          'resolution',
           'createdAt'
         ])
         && request.resource.data.keys().hasAll([
@@ -103,6 +104,7 @@ service cloud.firestore {
           'clues',
           'solved',
           'points',
+          'resolution',
           'createdAt'
         ])
         && request.resource.data.playerName is string
@@ -116,7 +118,10 @@ service cloud.firestore {
         && request.resource.data.solved is bool
         && request.resource.data.points is int
         && request.resource.data.points >= 0
-        && request.resource.data.points <= 5
+        && request.resource.data.points <= 15
+        && request.resource.data.resolution is int
+        && request.resource.data.resolution >= 0
+        && request.resource.data.resolution <= 10
         && request.resource.data.createdAt == request.time;
       allow update, delete: if false;
     }

@@ -65,6 +65,8 @@ const game = {
   clues: [],
   guesses: new Map(),
   usedTargets: new Set(),
+  // Hottest resolution used for a clue this round; it sets the round's point multiplier.
+  roundHeat: 0,
 };
 
 updateResolutionNote();
@@ -143,6 +145,7 @@ clueForm.addEventListener("submit", async (event) => {
       setStatus(`“${clue}” means “${englishClue}”: no translating “${game.target}”!`, "error");
       return;
     }
+    game.roundHeat = Math.max(game.roundHeat, resolution);
     const freshGuesses = guesses.filter((word) => !game.guesses.has(word));
     if (freshGuesses.length === 0) {
       setStatus("No new guesses. Try a different angle.");
@@ -215,6 +218,7 @@ function nextRound() {
   game.target = remaining[Math.floor(Math.random() * remaining.length)];
   game.usedTargets.add(game.target);
   game.clues = [];
+  game.roundHeat = 0;
   game.guesses.clear();
   clueTrail.replaceChildren();
   board.querySelectorAll(".guess").forEach((element) => element.remove());
@@ -225,12 +229,14 @@ function nextRound() {
 }
 
 async function solveRound(word) {
-  const points = Math.max(1, 6 - game.clues.length);
+  const cluePoints = Math.max(1, 6 - game.clues.length);
+  const multiplier = heatMultiplier(game.roundHeat);
+  const points = Math.round(cluePoints * multiplier);
   game.score += points;
   game.wordsSolved += 1;
   scoreEl.textContent = String(game.score);
   targetMarker.classList.add("solved");
-  setStatus(`Got it! The machine said “${word}” after ${game.clues.length} ${game.clues.length === 1 ? "clue" : "clues"}. +${points}`, "success");
+  setStatus(`Got it! The machine said “${word}” after ${game.clues.length} ${game.clues.length === 1 ? "clue" : "clues"}. +${points} (${cluePoints} × ${multiplier.toFixed(1)} at resolution ${game.roundHeat})`, "success");
   await Promise.all([recordRound(true, points), savePlayer(true)]);
   await wait(1400);
   if (game.active) nextRound();
@@ -396,10 +402,15 @@ function guessTemperature(resolution) {
   return Math.round((0.2 + resolution * 0.12) * 100) / 100;
 }
 
+// Colder is harder, so it pays more: ×3 at resolution 1 down to ×1 at resolution 10.
+function heatMultiplier(resolution) {
+  return 1 + (10 - resolution) * 2 / 9;
+}
+
 function updateResolutionNote() {
   const resolution = Number(resolutionInput.value);
   resolutionValue.textContent = String(resolution);
-  resolutionNote.textContent = `${guessCount(resolution)} guesses · temperature ${guessTemperature(resolution)}`;
+  resolutionNote.textContent = `${guessCount(resolution)} guesses · temperature ${guessTemperature(resolution)} · ×${heatMultiplier(resolution).toFixed(1)} points`;
 }
 
 function addClueToTrail(clue) {
@@ -447,6 +458,7 @@ function recordRound(solved, points) {
     clues: game.clues.slice(0, MAX_CLUES),
     solved,
     points,
+    resolution: game.roundHeat,
     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
   }).catch((error) => console.warn("Couldn't record round", error));
 }
