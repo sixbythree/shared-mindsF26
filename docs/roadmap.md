@@ -5,4 +5,3 @@
 - Multiplayer rooms: humans guess alongside the machine in real time
 - Show similarity score on hover or in a legend; tune the board layout for mobile
 - Option to keep the clock running while models think (harder mode)
-- Write the assignment's documentation/blog post (Hoffman reflection → organic embeddings → game)

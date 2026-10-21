@@ -11,6 +11,11 @@
   - [x] Block translated or transliterated clues (translate-then-check)
   - [x] Firebase live leaderboard and recent-rounds feed, plus Firestore rules
   - [x] Linked from the root index
+  - [x] Six brand design (Inter Light, stone neutrals, brand colors per clue), light theme only
+  - [x] Overlap-free guess placement; secret word shown only by the solved center marker
+  - [x] Start card fits short browser windows
+  - [x] Folder renamed to `a06_textual_charades/`; live on GitHub Pages
+  - [x] Portfolio post on six-hq.com (/itp/semester-3/shared-minds/06-textual-charades) with an arrow to the live game
 
 ## In progress
 - (none)
