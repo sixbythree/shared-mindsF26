@@ -38,7 +38,10 @@ const againButton = document.querySelector("#again-button");
 const database = firebase.initializeApp(window.firebaseConfig).firestore();
 const playersCollection = database.collection("charadesPlayers");
 const roundsCollection = database.collection("charadesRounds");
-const playerId = getPlayerId();
+// Players are keyed by their lowercased name, so the same name is one leaderboard row on every device.
+const NAME_PATTERN = /^[\p{L}\p{N}_-]+( [\p{L}\p{N}_-]+)*$/u;
+const LIVE_WINDOW_MS = 3 * 60 * 1000;
+let playerId = "";
 
 const game = {
   playerName: "",
@@ -56,15 +59,21 @@ const game = {
 };
 
 nameInput.value = readStorage("charadesName") ?? "";
+nameInput.addEventListener("input", () => nameInput.setCustomValidity(""));
 updateResolutionNote();
 listenToLeaderboard();
 listenToRoundFeed();
 
 startForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const name = nameInput.value.trim();
-  if (!name) return;
+  const name = nameInput.value.trim().replace(/\s+/g, " ");
+  if (!NAME_PATTERN.test(name)) {
+    nameInput.setCustomValidity("Use letters, numbers, spaces, - or _.");
+    nameInput.reportValidity();
+    return;
+  }
   game.playerName = name;
+  playerId = playerKey(name);
   writeStorage("charadesName", name);
   const saved = await playersCollection.doc(playerId).get().catch(() => null);
   game.bestScore = saved?.data()?.bestScore ?? 0;
@@ -430,11 +439,12 @@ function listenToLeaderboard() {
       const item = document.createElement("li");
       const name = document.createElement("span");
       name.textContent = player.name;
-      if (player.playing) name.classList.add("live");
+      const live = player.playing && Date.now() - (player.updatedAt?.toMillis() ?? 0) < LIVE_WINDOW_MS;
+      if (live) name.classList.add("live");
       if (doc.id === playerId) name.classList.add("you");
       const score = document.createElement("span");
       score.className = "muted";
-      score.textContent = player.playing ? `${player.score} now · best ${player.bestScore}` : `best ${player.bestScore}`;
+      score.textContent = live ? `${player.score} now · best ${player.bestScore}` : `best ${player.bestScore}`;
       item.append(name, score);
       return item;
     }));
@@ -471,12 +481,9 @@ function mutedItem(text) {
   return item;
 }
 
-function getPlayerId() {
-  const saved = readStorage("charadesPlayerId");
-  if (saved) return saved;
-  const id = crypto.randomUUID();
-  writeStorage("charadesPlayerId", id);
-  return id;
+// Must match the document ID rule in firestore.rules: lowercased, spaces as hyphens.
+function playerKey(name) {
+  return name.toLowerCase().replaceAll(" ", "-");
 }
 
 function readStorage(key) {

@@ -69,6 +69,8 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 40
+        && request.resource.data.name.matches('^[\\p{L}\\p{N}_-]+( [\\p{L}\\p{N}_-]+)*$')
+        && playerId == request.resource.data.name.lower().replace(' ', '-')
         && request.resource.data.score is int
         && request.resource.data.score >= 0
         && request.resource.data.score <= 1000
