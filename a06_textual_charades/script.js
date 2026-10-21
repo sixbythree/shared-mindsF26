@@ -199,7 +199,6 @@ async function solveRound(word) {
   game.wordsSolved += 1;
   scoreEl.textContent = String(game.score);
   targetMarker.classList.add("solved");
-  board.querySelector(`.guess[data-word="${CSS.escape(word)}"]`)?.classList.add("hit");
   setStatus(`Got it! The machine said “${word}” after ${game.clues.length} ${game.clues.length === 1 ? "clue" : "clues"}. +${points}`, "success");
   await Promise.all([recordRound(true, points), savePlayer(true)]);
   await wait(1400);
@@ -277,30 +276,68 @@ async function runModel(body) {
 }
 
 function layoutGuesses(resolution) {
-  const similarities = [...game.guesses.values()].map((guess) => guess.similarity);
+  // The secret word itself is shown by the center marker, so it never gets its own label.
+  const guesses = [...game.guesses].filter(([word]) => !sameWord(word, game.target));
+  if (guesses.length === 0) return;
+  const similarities = guesses.map(([, guess]) => guess.similarity);
   const min = Math.min(...similarities);
   const max = Math.max(...similarities);
   const spread = 0.45 + resolution * 0.055;
   const maxRadius = Math.min(board.clientWidth, board.clientHeight) * 0.46;
+  const placed = [labelBox(0, 0, targetMarker)];
 
-  for (const [word, guess] of game.guesses) {
+  for (const [word, guess] of guesses) {
+    const closeness = max === min ? 0.5 : (guess.similarity - min) / (max - min);
     let element = board.querySelector(`.guess[data-word="${CSS.escape(word)}"]`);
     if (!element) {
       element = document.createElement("span");
       element.className = "guess";
       element.dataset.word = word;
       element.textContent = word;
-      element.style.setProperty("--clue-hue", String((guess.clueIndex * 47) % 360));
-      guess.angle = Math.random() * Math.PI * 2;
+      element.dataset.clue = String(guess.clueIndex % 4);
+      element.style.fontSize = `${0.8 + closeness * 0.7}rem`;
       guess.jitter = (Math.random() - 0.5) * 0.12 * resolution / 10;
       board.append(element);
     }
-    const closeness = max === min ? 0.5 : (guess.similarity - min) / (max - min);
-    const radius = maxRadius * (0.16 + (1 - closeness + guess.jitter) * 0.84 * spread);
-    element.style.transform = `translate(calc(-50% + ${Math.cos(guess.angle) * radius}px), calc(-50% + ${Math.sin(guess.angle) * radius * 0.82}px))`;
+    const radius = maxRadius * (0.24 + (1 - closeness + guess.jitter) * 0.76 * spread);
+    guess.angle ??= findOpenAngle(radius, element, placed);
+    const box = labelBox(guess.angle, radius, element);
+    placed.push(box);
+    element.style.transform = `translate(calc(-50% + ${box.x}px), calc(-50% + ${box.y}px))`;
     element.style.fontSize = `${0.8 + closeness * 0.7}rem`;
     element.title = `similarity ${guess.similarity.toFixed(3)}`;
   }
+}
+
+function labelBox(angle, radius, element) {
+  return {
+    x: Math.cos(angle) * radius,
+    y: Math.sin(angle) * radius * 0.82,
+    width: element.offsetWidth + 16,
+    height: element.offsetHeight + 8,
+  };
+}
+
+// Tries random directions and keeps the one whose label overlaps the fewest existing labels.
+function findOpenAngle(radius, element, placed) {
+  let bestAngle = 0;
+  let bestOverlap = Infinity;
+  for (let attempt = 0; attempt < 36 && bestOverlap > 0; attempt += 1) {
+    const angle = Math.random() * Math.PI * 2;
+    const box = labelBox(angle, radius, element);
+    const overlap = placed.reduce((total, other) => total + overlapArea(box, other), 0);
+    if (overlap < bestOverlap) {
+      bestAngle = angle;
+      bestOverlap = overlap;
+    }
+  }
+  return bestAngle;
+}
+
+function overlapArea(a, b) {
+  const width = Math.min(a.x + a.width / 2, b.x + b.width / 2) - Math.max(a.x - a.width / 2, b.x - b.width / 2);
+  const height = Math.min(a.y + a.height / 2, b.y + b.height / 2) - Math.max(a.y - a.height / 2, b.y - b.height / 2);
+  return Math.max(0, width) * Math.max(0, height);
 }
 
 function cosineSimilarity(a, b) {
@@ -337,7 +374,7 @@ function updateResolutionNote() {
 function addClueToTrail(clue) {
   const item = document.createElement("li");
   item.textContent = clue;
-  item.style.setProperty("--clue-hue", String(((game.clues.length - 1) * 47) % 360));
+  item.dataset.clue = String((game.clues.length - 1) % 4);
   clueTrail.append(item);
 }
 

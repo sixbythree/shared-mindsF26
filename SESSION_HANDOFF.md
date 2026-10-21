@@ -10,7 +10,7 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 |---|--------|--------|
 | 01 | `bouncing_ball/` | Done |
 | 02 | `nano_banana_2/` | Done: prompt → image, shared draggable Firestore gallery |
-| 03 | `a06 - hyper_handles-embeddings/` | Built 2026-10-21: Textual Charades (see below) |
+| 03 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
 
 ## Current focus: A06 Textual Charades
 - Player gets a secret word (90s game), types clues without saying it; `openai/gpt-4o-mini` guesses; guesses are placed on a radial board by `multilingual-e5-large` cosine similarity to the secret word.

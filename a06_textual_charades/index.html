@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Textual charades: describe a secret word without saying it and watch a machine guess through embeddings.">
   <title>Textual Charades — Shared Minds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
@@ -63,13 +66,13 @@
 
   <div id="intro" class="overlay">
     <form id="start-form" class="overlay-card">
-      <p class="eyebrow">Shared Minds · Assignment 6</p>
-      <h1>Textual Charades</h1>
+      <p class="eyebrow">Shared Minds · Assignment 06</p>
+      <h1>Textual<br>Charades</h1>
       <p>You get a secret word. Type clues without saying it. The machine guesses, and every guess lands on the board by how close its <em>embedding</em> is to the secret word. Get the machine to say your word before time runs out.</p>
       <p class="muted">Resolution sets how many guesses come back and how freely they wander.</p>
-      <label for="player-name">Your name</label>
+      <label for="player-name" class="eyebrow">Your name</label>
       <input id="player-name" maxlength="40" autocomplete="nickname" required>
-      <button type="submit">Start</button>
+      <button type="submit">Start playing</button>
     </form>
   </div>
 

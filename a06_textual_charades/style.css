@@ -1,0 +1,457 @@
+/* Six brand styling: Inter Light, stone neutrals, pill controls, brand colors for clues. */
+
+:root {
+  --six-white: #F7F7F7;
+  --six-orange: #FF4100;
+  --six-magenta: #E30069;
+  --six-blue: #064AA7;
+  --six-violet: #2C057D;
+  --text: #1c1917;
+  --muted: #78716c;
+  --faint: #a8a29e;
+  --line: #e7e5e4;
+  --panel: rgb(255 255 255 / 82%);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--six-white);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  padding: 0.7rem 1.4rem;
+  border: 1px solid var(--text);
+  border-radius: 999px;
+  background: var(--text);
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s var(--ease);
+}
+
+button:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+input:not([type="range"]) {
+  width: 100%;
+  padding: 0.75rem 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+}
+
+input::placeholder {
+  color: var(--faint);
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.eyebrow,
+.hud-label,
+.side-panel h2,
+.resolution-row label {
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Clue colors cycle through the four saturated brand colors. */
+
+[data-clue="0"] { --clue: var(--six-orange); }
+[data-clue="1"] { --clue: var(--six-magenta); }
+[data-clue="2"] { --clue: var(--six-blue); }
+[data-clue="3"] { --clue: var(--six-violet); }
+
+/* Board */
+
+.board {
+  position: fixed;
+  inset: 0;
+}
+
+.rings span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.rings span:nth-child(1) { width: 30vmin; height: 25vmin; }
+.rings span:nth-child(2) { width: 60vmin; height: 50vmin; }
+.rings span:nth-child(3) { width: 92vmin; height: 76vmin; }
+
+.target-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  padding: 0.7rem 1.5rem;
+  border-radius: 999px;
+  background: var(--text);
+  color: #ffffff;
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  transform: translate(-50%, -50%);
+  transition: background-color 0.4s var(--ease), transform 0.4s var(--ease);
+}
+
+.board.thinking .target-marker {
+  animation: marker-wave 1.4s var(--ease) infinite;
+}
+
+.target-marker.solved {
+  background: var(--six-orange);
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+@keyframes marker-wave {
+  0%, 100% { box-shadow: 6px 0 0 -2px var(--six-orange), 12px 0 0 -4px var(--six-magenta); }
+  33% { box-shadow: 6px 0 0 -2px var(--six-magenta), 12px 0 0 -4px var(--six-blue); }
+  66% { box-shadow: 6px 0 0 -2px var(--six-blue), 12px 0 0 -4px var(--six-violet); }
+}
+
+/* Each guess carries a square chip in its clue's color. */
+.guess {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1), font-size 0.9s var(--ease);
+  animation: appear 0.6s ease-out;
+  cursor: default;
+}
+
+.guess::before {
+  content: "";
+  width: 0.55em;
+  height: 0.55em;
+  background: var(--clue);
+}
+
+
+@keyframes appear {
+  from { opacity: 0; filter: blur(4px); }
+}
+
+/* HUD */
+
+.hud {
+  position: fixed;
+  top: 1.25rem;
+  left: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.back-link {
+  margin-right: 0.8rem;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  opacity: 0.6;
+}
+
+.hud-card {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+}
+
+.target-word,
+.hud-value {
+  font-size: 1.4rem;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+.hud-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-value.low {
+  color: var(--six-orange);
+}
+
+/* Side panel */
+
+.side-panel {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: 17rem;
+  overflow-y: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  font-size: 0.85rem;
+}
+
+.side-panel h2 {
+  margin-bottom: 0.9rem;
+}
+
+.side-panel section + section {
+  margin-top: 1.8rem;
+}
+
+.leaderboard,
+.round-feed {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.leaderboard .live::before {
+  content: "";
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.45rem;
+  background: var(--six-orange);
+}
+
+.leaderboard .you {
+  font-weight: 600;
+}
+
+.round-feed li {
+  display: grid;
+  gap: 0.2rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--line);
+}
+
+.round-feed li.solved {
+  border-color: var(--six-orange);
+}
+
+.round-feed strong {
+  font-weight: 500;
+}
+
+/* Clue form */
+
+.clue-form {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  width: min(100% - 2rem, 36rem);
+  padding: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  transform: translateX(calc(-50% - 9rem));
+}
+
+.clue-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.7rem;
+  padding: 0;
+  list-style: none;
+}
+
+.clue-trail:empty {
+  display: none;
+}
+
+.clue-trail li {
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  background: var(--clue);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.clue-row,
+.resolution-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.resolution-row {
+  margin-top: 0.8rem;
+  font-size: 0.8rem;
+}
+
+.resolution-row input {
+  flex: 1;
+  accent-color: var(--text);
+}
+
+.resolution-row output {
+  min-width: 1.4rem;
+  font-weight: 600;
+}
+
+.status {
+  min-height: 1.2em;
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.status[data-kind="error"] {
+  color: var(--six-magenta);
+}
+
+.status[data-kind="success"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Overlays: modeled on the portfolio hero. */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(247 247 247 / 72%);
+  backdrop-filter: blur(10px);
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.overlay-card {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 32rem);
+  padding: 2.5rem;
+  border-radius: 1.5rem;
+  background: #ffffff;
+  line-height: 1.6;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 12%);
+}
+
+.overlay-card h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: clamp(2.6rem, 8vw, 3.6rem);
+  font-weight: 300;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.overlay-card p {
+  margin: 0;
+}
+
+.overlay-card label.eyebrow {
+  margin-top: 0.5rem;
+}
+
+.overlay-card button {
+  justify-self: start;
+  padding: 0.8rem 1.6rem;
+}
+
+@media (max-width: 860px) {
+  body {
+    overflow: auto;
+  }
+
+  .side-panel {
+    position: static;
+    width: auto;
+    margin: 42rem 1rem 1rem;
+  }
+
+  .clue-form {
+    transform: translateX(-50%);
+  }
+
+  .board {
+    position: absolute;
+    height: 100vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board.thinking .target-marker {
+    animation: none;
+  }
+}
