@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 56" fill="none" stroke="#1c1917" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <title>100</title>
+  <!-- The "1", then two "0"s drawn as eyes with lashes, looking up and to the right (from the A05 notes). -->
+  <path d="M3 21 L13 12 V50"/>
+  <circle cx="46" cy="34" r="16"/>
+  <ellipse cx="48" cy="32" rx="8.5" ry="11" fill="#1c1917" stroke="none"/>
+  <circle cx="51" cy="26" r="2.2" fill="#ffffff" stroke="none"/>
+  <path d="M33 22 L31 14 M39 18 L38 10 M50 18 L54 10"/>
+  <circle cx="92" cy="34" r="16"/>
+  <ellipse cx="94" cy="32" rx="8.5" ry="11" fill="#1c1917" stroke="none"/>
+  <circle cx="97" cy="26" r="2.2" fill="#ffffff" stroke="none"/>
+  <path d="M85 18 L84 10 M99 19 L103 11 M104 22 L108 15"/>
+</svg>

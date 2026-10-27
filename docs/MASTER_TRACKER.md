@@ -27,7 +27,20 @@
   - [x] Fairer clue check for short secret words ("giant" allowed for ant)
 
 ## In progress
-- (none)
+- [ ] 03 100 (A05), draft started 2026-10-26 in `a05_100/`
+  - [x] Rules module (`rules.js`): 100-connection cap, 7-day window, 3-of-7 engagement, 5-min calls, 30-day block, New York calendar days
+  - [x] Temperature: everyone starts hot; mutual days in last 7 (6–7 hot, 3–5 warm, 1–2 cold); disappears after 7 days with no engagement
+  - [x] Full 100: connecting or accepting means letting someone go
+  - [x] Connections, in-app messages and WebRTC voice calls (Firestore `hundredConnections`, `hundredCalls`)
+  - [x] Posts (text, image, video link) with private heat and comments; neither counts as engagement
+  - [x] Person pages (posts visible only when connected)
+  - [x] Activities (`activities.js`): Watch (synced YouTube/.mp4, shared clock for streaming apps), Read (article list, notes), Study (shared focus timer, chat on breaks); 5 min together counts as a shared day
+  - [x] Demo mode (~140 LLM-backed fake people, Next day button) via `store-demo.js`; real backend in `store-firebase.js`
+  - [x] Logo ("1" + two eyes), Firestore rules for all `hundred*` collections, card on the root index (03; Charades now 04)
+  - [ ] Deploy Firestore rules and verify the real (non-demo) flow with two accounts
+  - [ ] Decide open switches: PUBLIC_HEAT, COMMENTS_COUNT_AS_TALKING
+  - [ ] Money model (leaning Activities-based, no ads)
+  - [ ] Portfolio post (05-social.md) kept in sync with the rules
 
 ## Not started
 - See `docs/roadmap.md`

@@ -1,6 +1,6 @@
 # Session Handoff — Shared Minds (NYU ITP, Fall 2026)
 
-_Last updated: 2026-10-21_
+_Last updated: 2026-10-26_
 
 ## What this repo is
 Weekly assignments for the Shared Minds class, published as a static site on GitHub Pages (`index.html` at the root links to each project). Shared backend: Firebase project `shared-mindsf26` (Firestore, rules in `firestore.rules`) and the ITP/IMA Replicate proxy (`https://itp-ima-replicate-proxy.web.app/api/create_n_get`).
@@ -10,9 +10,19 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 |---|--------|--------|
 | 01 | `bouncing_ball/` | Done |
 | 02 | `nano_banana_2/` | Done: prompt → image, shared draggable Firestore gallery |
-| 03 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
+| 03 | `a05_100/` | Draft 2026-10-26: 100, a social app capped at 100 connections (see below) |
+| 04 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
 
-## Current focus: A06 Textual Charades
+## Current focus: A05 100
+- Social app capped at 100 connections. Each connection has a temperature from mutual engagement: an in-app call over 5 min, or messaging, on a given New York calendar day. Hot 6–7 of last 7 days, warm 3–5, cold 1–2; gone after 7 days with nothing, then neither person can reconnect for 30 days.
+- All rule constants and day math live in `a05_100/rules.js`, shared by the interface (`script.js`), demo store (`store-demo.js`) and Firebase store (`store-firebase.js`).
+- Posts (text/image/video link) with heat and comments; they don't count as engagement. Open switches in `rules.js`: `PUBLIC_HEAT`, `COMMENTS_COUNT_AS_TALKING`.
+- Activities (`activities.js`, Firestore `hundredActivities`): Watch, Read, Study with anyone in your 100; 5 min together counts as a shared day (`ACTIVITIES_COUNT_AS_TALKING`).
+- Demo mode: ~140 LLM-backed fake people and a Next day button, no sign-in needed.
+- Firestore collections: `hundredUsers`, `hundredConnections` (+ `messages`), `hundredPosts` (+ `comments`), `hundredActivities` (+ `chat`, `notes`), `hundredCalls` (+ ICE candidates). Rules are in `firestore.rules`; deployment to `shared-mindsf26` not confirmed this session.
+- `logo.svg` is force-added (the repo ignores `*.svg`). The HW 5 PDF stays local (ignored).
+
+## A06 Textual Charades
 - Player gets a secret word (90s game), types clues without saying it; `openai/gpt-4o-mini` guesses; guesses are placed on a radial board by `multilingual-e5-large` cosine similarity to the secret word.
 - Resolution slider (1–10) → guess count (5–23), guesser temperature, board spread.
 - Translated clues are blocked: each clue is translated to English by the LLM in parallel with guessing, then the "no saying the word" rule runs on the English.

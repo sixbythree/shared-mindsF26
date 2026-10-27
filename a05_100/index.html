@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="100: a social network where you can only keep 100 connections, and every connection has a temperature.">
+  <title>100 — Shared Minds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
+  <script src="firebase-config.js" defer></script>
+  <script type="module" src="script.js"></script>
+</head>
+<body>
+  <header id="topbar" class="topbar" hidden>
+    <a class="back-link" href="https://www.six-hq.com/itp/semester-3/shared-minds/05-social">&larr; Post</a>
+    <h1 class="brand"><svg class="logo" viewBox="0 0 124 56" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="100">
+      <path d="M3 21 L13 12 V50"/>
+      <circle cx="46" cy="34" r="16"/>
+      <g class="pupil"><ellipse cx="48" cy="32" rx="8.5" ry="11" fill="currentColor" stroke="none"/><circle cx="51" cy="26" r="2.2" fill="#ffffff" stroke="none"/></g>
+      <path d="M33 22 L31 14 M39 18 L38 10 M50 18 L54 10"/>
+      <circle cx="92" cy="34" r="16"/>
+      <g class="pupil"><ellipse cx="94" cy="32" rx="8.5" ry="11" fill="currentColor" stroke="none"/><circle cx="97" cy="26" r="2.2" fill="#ffffff" stroke="none"/></g>
+      <path d="M85 18 L84 10 M99 19 L103 11 M104 22 L108 15"/>
+    </svg></h1>
+    <p class="count"><strong id="count">0</strong> / 100</p>
+    <div id="demo-bar" class="demo-bar" hidden>
+      <span class="eyebrow">Demo</span>
+      <span id="demo-day"></span>
+      <button id="next-day" type="button" class="secondary small">Next day &rarr;</button>
+    </div>
+    <div class="me">
+      <button id="me-name" type="button" class="link-button"></button>
+      <button id="leave-button" type="button" class="secondary small">Leave</button>
+    </div>
+  </header>
+
+  <main id="app" class="layout" hidden>
+    <aside class="sidebar">
+      <section>
+        <h2>Your 100</h2>
+        <div id="make-room" class="notice make-room" hidden>
+          <p id="make-room-text"></p>
+          <button id="make-room-cancel" type="button" class="secondary small">Cancel</button>
+        </div>
+        <div id="grid" class="grid" aria-label="Your connections, hottest first"></div>
+        <ul class="legend" aria-label="Temperature">
+          <li><i style="--heat: var(--hot)"></i>Hot · 6–7 days</li>
+          <li><i style="--heat: var(--warm)"></i>Warm · 3–5</li>
+          <li><i style="--heat: var(--cold)"></i>Cold · 1–2</li>
+          <li><i class="waiting-dot"></i>Waiting on you</li>
+          <li id="legend-activity">Doing something together</li>
+        </ul>
+        <p class="hint">A day counts when you both message, or talk on a call for 5 minutes. A week without one and the connection disappears for 30 days.</p>
+      </section>
+
+      <section id="requests-section" hidden>
+        <h2>Requests</h2>
+        <ul id="requests" class="people"></ul>
+      </section>
+
+      <section id="cooled-section" hidden>
+        <h2>Cooled off</h2>
+        <ul id="cooled" class="people"></ul>
+      </section>
+
+      <section>
+        <h2>Find people</h2>
+        <label class="visually-hidden" for="search">Search by name</label>
+        <input id="search" type="search" placeholder="Search by name" autocomplete="off">
+        <ul id="people" class="people"></ul>
+      </section>
+    </aside>
+
+    <section class="main">
+      <div id="feed-view">
+        <section id="activities-now" class="activities-now" aria-label="Happening now"></section>
+        <form id="composer" class="composer">
+          <label class="visually-hidden" for="post-text">Share something</label>
+          <textarea id="post-text" rows="2" maxlength="2000" placeholder="Share something with your 100"></textarea>
+          <img id="image-preview" class="image-preview" alt="" hidden>
+          <div class="composer-row">
+            <label class="file-button secondary">Photo<input id="post-image" type="file" accept="image/*"></label>
+            <label class="visually-hidden" for="post-video">Video link</label>
+            <input id="post-video" type="url" placeholder="Video link (YouTube or .mp4)">
+            <button id="post-button" type="submit">Post</button>
+          </div>
+          <p id="composer-status" class="status" role="status" aria-live="polite"></p>
+        </form>
+        <ol id="feed" class="feed"></ol>
+      </div>
+
+      <div id="thread-view" class="thread" hidden>
+        <div class="thread-head">
+          <button id="thread-back" type="button" class="secondary small">&larr; Feed</button>
+          <div class="thread-who">
+            <h2><button id="thread-name" type="button" class="link-button"></button></h2>
+            <p id="thread-temp" class="thread-temp"></p>
+          </div>
+          <button id="let-go-button" type="button" class="secondary small">Let go</button>
+          <button id="call-button" type="button" class="small">Call</button>
+        </div>
+        <ol id="week" class="week" aria-label="The last 7 days"></ol>
+        <p id="thread-note" class="thread-note"></p>
+        <ol id="messages" class="messages"></ol>
+        <form id="message-form" class="message-form">
+          <label class="visually-hidden" for="message">Message</label>
+          <input id="message" maxlength="2000" autocomplete="off" placeholder="Message">
+          <button type="submit">Send</button>
+        </form>
+      </div>
+
+      <div id="activity-view" class="activity" hidden>
+        <div class="activity-head">
+          <div class="activity-who">
+            <p id="activity-host" class="eyebrow activity-host"></p>
+            <h2 id="activity-title"></h2>
+          </div>
+          <button id="activity-leave" type="button" class="secondary small">Leave</button>
+        </div>
+        <div class="activity-body">
+          <div id="activity-stage" class="activity-stage"></div>
+          <ul id="activity-people" class="activity-people" aria-label="Who's here"></ul>
+          <p id="activity-note" class="thread-note"></p>
+          <ol id="activity-chat" class="messages activity-chat" aria-label="Chat"></ol>
+        </div>
+        <form id="activity-chat-form" class="message-form">
+          <label class="visually-hidden" for="activity-chat-input">Chat</label>
+          <input id="activity-chat-input" maxlength="500" autocomplete="off" placeholder="Say something">
+          <button type="submit">Send</button>
+        </form>
+      </div>
+
+      <div id="profile-view" class="profile" hidden>
+        <button id="profile-back" type="button" class="secondary small">&larr; Feed</button>
+        <div class="profile-card">
+          <span id="profile-avatar" class="avatar"></span>
+          <div class="profile-who">
+            <h2 id="profile-name"></h2>
+            <p id="profile-temp" class="profile-temp"></p>
+          </div>
+          <div id="profile-actions" class="profile-actions"></div>
+        </div>
+        <div id="profile-activity" class="profile-activity" hidden></div>
+        <ol id="profile-posts" class="feed"></ol>
+      </div>
+    </section>
+  </main>
+
+  <div id="intro" class="overlay">
+    <div class="overlay-card">
+      <p class="eyebrow">Shared Minds · Assignment 05</p>
+      <h1 class="intro-title"><svg class="logo logo-large" viewBox="0 0 124 56" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="100">
+        <path d="M3 21 L13 12 V50"/>
+        <circle cx="46" cy="34" r="16"/>
+        <g class="pupil"><ellipse cx="48" cy="32" rx="8.5" ry="11" fill="currentColor" stroke="none"/><circle cx="51" cy="26" r="2.2" fill="#ffffff" stroke="none"/></g>
+        <path d="M33 22 L31 14 M39 18 L38 10 M50 18 L54 10"/>
+        <circle cx="92" cy="34" r="16"/>
+        <g class="pupil"><ellipse cx="94" cy="32" rx="8.5" ry="11" fill="currentColor" stroke="none"/><circle cx="97" cy="26" r="2.2" fill="#ffffff" stroke="none"/></g>
+        <path d="M85 18 L84 10 M99 19 L103 11 M104 22 L108 15"/>
+      </svg></h1>
+      <p>A social network where you can only keep <strong>100 connections</strong>. Every connection has a temperature. It starts hot, and it stays hot only if you both keep talking.</p>
+      <p class="muted">Posting and liking don't count. Messaging on the same day, or a call of 5 minutes or more, does. A week without that and the connection disappears, and neither of you can reconnect for 30 days. When your 100 is full, making room means letting someone go.</p>
+      <div id="signed-out" class="auth-actions">
+        <button id="sign-in-button" type="button">Sign in with Google</button>
+        <button id="demo-button" type="button" class="secondary">Try the demo</button>
+      </div>
+      <div id="signed-in" hidden>
+        <p>Signed in as <strong id="signed-in-name"></strong></p>
+        <div class="auth-actions">
+          <button id="enter-button" type="button">Enter</button>
+          <button id="demo-button-2" type="button" class="secondary">Try the demo</button>
+          <button id="sign-out-button" type="button" class="secondary">Sign out</button>
+        </div>
+      </div>
+      <p id="auth-status" class="status" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div id="activity-start" class="overlay" hidden>
+    <form id="activity-start-form" class="overlay-card">
+      <p class="eyebrow">Start something together</p>
+      <h2 id="activity-start-heading" class="confirm-title">What are you doing?</h2>
+      <div class="type-tabs" role="radiogroup" aria-label="Activity">
+        <label><input type="radio" name="activity-type" value="watching" checked><span>Watch</span></label>
+        <label><input type="radio" name="activity-type" value="reading"><span>Read</span></label>
+        <label><input type="radio" name="activity-type" value="studying"><span>Study</span></label>
+      </div>
+      <p class="muted">Anyone in your 100 can join you.</p>
+      <div data-for="watching">
+        <p class="field-label" id="activity-start-services-label">Where are you watching?</p>
+        <div id="activity-start-services" class="services" role="radiogroup" aria-labelledby="activity-start-services-label"></div>
+        <p class="hint">It opens in a new tab, and your 100 sees you're on it.</p>
+        <div id="activity-start-url-group" hidden>
+          <label class="field-label" for="activity-start-url">Link (optional)</label>
+          <input id="activity-start-url" type="url" maxlength="500" placeholder="https://www.youtube.com/watch?v=…">
+          <p class="hint">A YouTube or video link plays in sync for everyone in the room.</p>
+        </div>
+      </div>
+      <label id="activity-start-title-label" class="field-label" for="activity-start-title">Title</label>
+      <input id="activity-start-title" maxlength="80">
+      <div data-for="reading" hidden>
+        <label class="field-label" for="activity-start-list">Articles, one link per line</label>
+        <textarea id="activity-start-list" rows="4" placeholder="https://www.nytimes.com/…&#10;Title | https://…"></textarea>
+        <p class="hint">Everyone opens their own copy, so paywalls stay as they are. Add a title with "Title | link".</p>
+      </div>
+      <div data-for="studying" hidden>
+        <div class="minutes-row">
+          <label class="field-label">Focus minutes<input id="activity-start-focus" type="number" min="1" max="120" value="25"></label>
+          <label class="field-label">Break minutes<input id="activity-start-break" type="number" min="1" max="60" value="5"></label>
+        </div>
+        <p class="hint">A shared focus timer. The chat only opens on breaks.</p>
+      </div>
+      <p id="activity-start-status" class="status" role="status" aria-live="polite"></p>
+      <div class="auth-actions">
+        <button type="submit">Start</button>
+        <button id="activity-start-cancel" type="button" class="secondary">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="confirm" class="overlay" hidden>
+    <div class="overlay-card" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+      <h2 id="confirm-title" class="confirm-title"></h2>
+      <p id="confirm-text" class="muted"></p>
+      <div class="auth-actions">
+        <button id="confirm-yes" type="button" class="danger"></button>
+        <button id="confirm-no" type="button" class="secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="call" class="overlay" hidden>
+    <div class="overlay-card call-card">
+      <p id="call-label" class="eyebrow">Call</p>
+      <h2 id="call-name"></h2>
+      <p id="call-time" class="call-time">0:00</p>
+      <p id="call-note" class="muted"></p>
+      <div class="auth-actions">
+        <button id="call-accept" type="button" hidden>Answer</button>
+        <button id="call-end" type="button" class="danger">Hang up</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
