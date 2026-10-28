@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Decisions: walk through a 3D landscape where a hidden AI judges every choice you make.">
+  <title>Decisions — Shared Minds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
+  <script type="module" src="script.js"></script>
+</head>
+<body data-style="ink">
+  <canvas id="scene" aria-label="A landscape with a hill, trees, a stream, mountains and a sun. Walk with the W A S D or arrow keys and drag to look around."></canvas>
+  <div class="grain" aria-hidden="true"></div>
+  <div id="labels" class="labels" aria-hidden="true"></div>
+
+  <header class="hud">
+    <a class="back-link" href="https://www.six-hq.com/itp/semester-3/shared-minds/07-spatial">&larr; Back to the post</a>
+    <div class="hud-card">
+      <span class="hud-label">Age</span>
+      <strong id="age" class="hud-value">1</strong>
+    </div>
+    <div class="hud-card">
+      <span class="hud-label">Stage</span>
+      <strong id="stage" class="hud-value">baby</strong>
+    </div>
+    <div class="hud-card">
+      <span class="hud-label">Clock</span>
+      <strong id="clock" class="hud-value">0:00</strong>
+    </div>
+    <div class="style-toggle" role="group" aria-label="Drawing style">
+      <button type="button" data-style="ink" aria-pressed="true">Ink</button>
+      <button type="button" data-style="watercolor" aria-pressed="false">Watercolor</button>
+    </div>
+  </header>
+
+  <p id="feeling" class="feeling" aria-live="polite"></p>
+
+  <footer class="dock">
+    <div id="card" class="card" hidden>
+      <strong id="card-name" class="card-name"></strong>
+      <p id="card-note" class="card-note"></p>
+      <button id="take" type="button">Take it <kbd>E</kbd></button>
+    </div>
+    <p class="status"><span id="status" aria-live="polite"></span> <button id="retry" class="secondary" type="button" hidden>Try again</button></p>
+    <p class="controls"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> to walk · drag to look around · <kbd>Space</kbd> to jump</p>
+    <p class="controls controls-touch">Drag the left side to walk, the right side to look around</p>
+    <button id="jump" class="jump secondary" type="button">Jump</button>
+  </footer>
+
+  <section id="intro" class="overlay" aria-labelledby="intro-title">
+    <div class="panel">
+      <h1 id="intro-title">Decisions</h1>
+      <p>You start life at one year old, crawling. Things will appear in front of you. Go up to one and take it. The others disappear.</p>
+      <p>Something is judging every choice, and it won't tell you what it values. Some choices help you grow up, make you lighter and slow your aging. Some leave you stuck where you are, heavier, and aging faster. Some end everything.</p>
+      <p>Time passes either way. Watch your age against the clock.</p>
+      <button id="start" type="button">Begin</button>
+    </div>
+  </section>
+
+  <section id="ending" class="overlay" aria-labelledby="ending-title" hidden>
+    <div class="panel panel-wide">
+      <h1 id="ending-title"></h1>
+      <p id="ending-summary"></p>
+      <h2>What was judging you</h2>
+      <p id="ending-creed" class="creed"></p>
+      <h2>Your choices</h2>
+      <ol id="ending-choices" class="choices"></ol>
+      <button id="again" type="button">Live again</button>
+    </div>
+  </section>
+</body>
+</html>
