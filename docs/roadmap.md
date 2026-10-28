@@ -11,3 +11,9 @@
 - Auto-detect what's playing in streaming apps (needs a browser extension; demo simulates it)
 - Activities-based revenue model written up and reflected in the app
 - Decide public vs private heat and whether comments count as talking
+
+## Decisions (A07) follow-ups
+- Play-test and tune pacing: rounds per life, strength and aging numbers, how often "end" appears
+- Clouds or stars so looking up at the sky has something to see
+- Sound: footsteps, ambient wind, a cue for good and bad choices
+- Show the body's growth history on the ending screen (age at each stage, when you got stuck)

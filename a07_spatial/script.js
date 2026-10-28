@@ -28,7 +28,6 @@ const cardName = document.querySelector("#card-name");
 const cardNote = document.querySelector("#card-note");
 const takeButton = document.querySelector("#take");
 const feelingEl = document.querySelector("#feeling");
-const jumpButton = document.querySelector("#jump");
 const intro = document.querySelector("#intro");
 const startButton = document.querySelector("#start");
 const ending = document.querySelector("#ending");
@@ -57,8 +56,11 @@ scene.add(figure);
 const player = { position: new THREE.Vector3(), heading: 0, vy: 0, grounded: true, stride: 0, inCave: false };
 let tooBigShownAt = -Infinity;
 const keys = new Set();
-const walkDrag = { id: null, x: 0, y: 0, dx: 0, dy: 0 };
 const lookDrag = { id: null, x: 0, y: 0 };
+const touches = new Map(); // fingers on the screen, for holding to walk and tapping to jump
+const HOLD_TIME = 180; // ms a finger rests before it starts walking
+const TAP_TIME = 250;
+const HOLD_SLOP = 12; // px a finger can drift and still count as resting
 const look = { pitch: 0.32 }; // below 0 the camera tilts up toward the sky
 let body = growFigure(rig, 0);
 let crawl = 1;
@@ -322,36 +324,46 @@ window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase())
 window.addEventListener("blur", () => keys.clear());
 
 // Dragging looks around: sideways turns you, up and down tilts the camera, all the way up to the sky.
-// On a touch screen the left half of the screen walks instead, like a joystick.
+// On a touch screen: hold one finger still to walk forward (keep dragging it to steer), hold two to back up,
+// and tap to jump. A drag that starts moving right away only looks.
 canvas.addEventListener("pointerdown", (event) => {
-  const walking = event.pointerType !== "mouse" && event.clientX < window.innerWidth / 2;
-  const drag = walking ? walkDrag : lookDrag;
-  if (drag.id !== null) return;
-  drag.id = event.pointerId;
-  drag.x = event.clientX;
-  drag.y = event.clientY;
-  if (walking) walkDrag.dx = walkDrag.dy = 0;
-  canvas.setPointerCapture(event.pointerId);
-});
-canvas.addEventListener("pointermove", (event) => {
-  if (event.pointerId === walkDrag.id) {
-    walkDrag.dx = Math.max(-1, Math.min(1, (event.clientX - walkDrag.x) / 80));
-    walkDrag.dy = Math.max(-1, Math.min(1, (event.clientY - walkDrag.y) / 80));
-  } else if (event.pointerId === lookDrag.id) {
-    if (game.phase === "playing") player.heading -= (event.clientX - lookDrag.x) * 0.005;
-    look.pitch = Math.max(-0.75, Math.min(1.2, look.pitch + (event.clientY - lookDrag.y) * 0.004));
+  if (event.pointerType !== "mouse") {
+    // A second finger means backing up, so none of the fingers down now counts as a tap.
+    for (const touch of touches.values()) touch.multi = true;
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY, at: performance.now(), moved: false, walk: false, multi: touches.size > 0 });
+  }
+  if (lookDrag.id === null) {
+    lookDrag.id = event.pointerId;
     lookDrag.x = event.clientX;
     lookDrag.y = event.clientY;
   }
+  canvas.setPointerCapture(event.pointerId);
+});
+canvas.addEventListener("pointermove", (event) => {
+  const touch = touches.get(event.pointerId);
+  if (touch && Math.hypot(event.clientX - touch.x, event.clientY - touch.y) > HOLD_SLOP) touch.moved = true;
+  if (event.pointerId !== lookDrag.id) return;
+  if (game.phase === "playing") player.heading -= (event.clientX - lookDrag.x) * 0.005;
+  look.pitch = Math.max(-0.75, Math.min(1.2, look.pitch + (event.clientY - lookDrag.y) * 0.004));
+  lookDrag.x = event.clientX;
+  lookDrag.y = event.clientY;
 });
 for (const type of ["pointerup", "pointercancel"]) {
   canvas.addEventListener(type, (event) => {
-    if (event.pointerId === walkDrag.id) walkDrag.id = null;
-    if (event.pointerId === lookDrag.id) lookDrag.id = null;
+    const touch = touches.get(event.pointerId);
+    touches.delete(event.pointerId);
+    if (type === "pointerup" && touch && !touch.moved && !touch.multi && performance.now() - touch.at < TAP_TIME) jump();
+    if (event.pointerId !== lookDrag.id) return;
+    // If another finger is still down, it takes over looking.
+    const [next] = touches;
+    lookDrag.id = next ? next[0] : null;
+    if (next) {
+      lookDrag.x = next[1].x;
+      lookDrag.y = next[1].y;
+    }
   });
 }
 
-jumpButton.addEventListener("click", jump);
 takeButton.addEventListener("click", () => take(nearestItem()));
 retryButton.addEventListener("click", requestRound);
 startButton.addEventListener("click", start);
@@ -411,10 +423,12 @@ function update(dt) {
     if (keys.has("s") || keys.has("arrowdown")) forward -= 1;
     if (keys.has("a") || keys.has("arrowleft")) turn += 1;
     if (keys.has("d") || keys.has("arrowright")) turn -= 1;
-    if (walkDrag.id !== null) {
-      forward -= walkDrag.dy;
-      turn -= walkDrag.dx;
+    const now = performance.now();
+    for (const touch of touches.values()) {
+      if (!touch.moved && now - touch.at > HOLD_TIME) touch.walk = true;
     }
+    if (touches.size >= 2) forward -= 1;
+    else if ([...touches.values()].some((touch) => touch.walk)) forward += 1;
   }
   forward = Math.max(-1, Math.min(1, forward));
   turn = Math.max(-1, Math.min(1, turn));

@@ -25,6 +25,19 @@
   - [x] Water-ripple ring animation (off with reduced motion)
   - [x] 367-word list (`words.js`); per-player no-repeat history from saved rounds
   - [x] Fairer clue check for short secret words ("giant" allowed for ant)
+- [x] 05 Decisions (A07), 2026-10-28, in `a07_spatial/`
+  - [x] three.js world from the sketch: hill, trees, stream, sun, climbable mountains with contour lines, cave
+  - [x] Ink and Watercolor looks with a toggle
+  - [x] LLM judge (`openai/gpt-4o-mini`) with a hidden creed; good / bad / end verdicts; reveal at the end
+  - [x] Figure modeled on the sketch; grows from a crawling 1-year-old through toddler, child, teen, adult
+  - [x] Good = lighter, slower aging, keep growing; bad = heavier, faster aging, stuck at the current stage
+  - [x] Cave door only children fit through
+  - [x] Drag to look around (including up at the sky)
+  - [x] Touch controls: hold to walk, two fingers to back up, drag to turn, tap to jump
+  - [x] Card on the root index; live on GitHub Pages
+  - [x] Portfolio post written (07-spatial.md) with screenshots
+  - [ ] Portfolio post deployed to six-hq.com
+  - [ ] Full play-test with the real judge (taking items, getting stuck, ending) on desktop and phone
 
 ## In progress
 - [ ] 03 100 (A05), draft started 2026-10-26 in `a05_100/`

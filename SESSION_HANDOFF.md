@@ -1,6 +1,6 @@
 # Session Handoff — Shared Minds (NYU ITP, Fall 2026)
 
-_Last updated: 2026-10-26_
+_Last updated: 2026-10-28_
 
 ## What this repo is
 Weekly assignments for the Shared Minds class, published as a static site on GitHub Pages (`index.html` at the root links to each project). Shared backend: Firebase project `shared-mindsf26` (Firestore, rules in `firestore.rules`) and the ITP/IMA Replicate proxy (`https://itp-ima-replicate-proxy.web.app/api/create_n_get`).
@@ -12,8 +12,20 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 | 02 | `nano_banana_2/` | Done: prompt → image, shared draggable Firestore gallery |
 | 03 | `a05_100/` | Draft 2026-10-26: 100, a social app capped at 100 connections (see below) |
 | 04 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
+| 05 | `a07_spatial/` | Built 2026-10-28: Decisions (see below). Live: https://sixbythree.github.io/shared-mindsF26/a07_spatial/ |
 
-## Current focus: A05 100
+## A07 Decisions (current focus)
+- three.js 0.160 (importmap, no build). `world.js` builds the scene, styles and figure; `script.js` runs the game, judge and controls.
+- World: hill, instanced trees, stream, climbable mountains (heightfield with contour lines), a cave at the foot of the left mountain with a low door (1.9) that only children fit through, a sun that crosses the sky over a lifetime.
+- Two looks: Ink (default, black outlines on white like the sketch) and Watercolor; `?style=` or localStorage `decisions-style`.
+- Figure is a 3D version of the user's sketch (round head, bell body, pod legs, thin arms). `growFigure(rig, growth)` reshapes it from baby to adult.
+- Life starts at age 1, crawling; stages baby → toddler (2.5) → child (5) → teen (12) → adult (18), by how grown you are, not age. Childhood years pass at 0.12/s, adult years at 0.25/s; life ends at 90.
+- Judge: `openai/gpt-4o-mini` via the Replicate proxy invents a hidden one-sentence creed, offers three objects a round, verdicts good / bad / end (end allowed from round 3).
+- Good: lighter/faster (strength +0.3w, max 3.2), aging slower, unstuck, small growth head start. Bad: heavier (strength −0.22w, min 0.2), aging faster, stuck at current stage until a good choice.
+- Controls: WASD/arrows walk, mouse drag turns and tilts the camera (up to the sky). Touch: hold one finger to walk forward, two to back up, drag to turn/look, tap to jump.
+- Portfolio post: content/itp/semester-3/shared-minds/07-spatial.md in the portfolio repo (not deployed as of 2026-10-28).
+
+## A05 100
 - Social app capped at 100 connections. Each connection has a temperature from mutual engagement: an in-app call over 5 min, or messaging, on a given New York calendar day. Hot 6–7 of last 7 days, warm 3–5, cold 1–2; gone after 7 days with nothing, then neither person can reconnect for 30 days.
 - All rule constants and day math live in `a05_100/rules.js`, shared by the interface (`script.js`), demo store (`store-demo.js`) and Firebase store (`store-firebase.js`).
 - Posts (text/image/video link) with heat and comments; they don't count as engagement. Open switches in `rules.js`: `PUBLIC_HEAT`, `COMMENTS_COUNT_AS_TALKING`.
