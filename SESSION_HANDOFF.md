@@ -1,6 +1,6 @@
 # Session Handoff — Shared Minds (NYU ITP, Fall 2026)
 
-_Last updated: 2026-10-28_
+_Last updated: 2026-10-29_
 
 ## What this repo is
 Weekly assignments for the Shared Minds class, published as a static site on GitHub Pages (`index.html` at the root links to each project). Shared backend: Firebase project `shared-mindsf26` (Firestore, rules in `firestore.rules`) and the ITP/IMA Replicate proxy (`https://itp-ima-replicate-proxy.web.app/api/create_n_get`).
@@ -10,11 +10,21 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 |---|--------|--------|
 | 01 | `bouncing_ball/` | Done |
 | 02 | `nano_banana_2/` | Done: prompt → image, shared draggable Firestore gallery |
-| 03 | `a05_100/` | Draft 2026-10-26: 100, a social app capped at 100 connections (see below) |
-| 04 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
-| 05 | `a07_spatial/` | Built 2026-10-28: Decisions (see below). Live: https://sixbythree.github.io/shared-mindsF26/a07_spatial/ |
+| 03 | `a04_triads/` | Built 2026-10-29: Triads (see below). Live: https://sixbythree.github.io/shared-mindsF26/a04_triads/ |
+| 04 | `a05_100/` | Draft 2026-10-26: 100, a social app capped at 100 connections (see below) |
+| 05 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
+| 06 | `a07_spatial/` | Built 2026-10-28: Decisions (see below). Live: https://sixbythree.github.io/shared-mindsF26/a07_spatial/ |
 
-## A07 Decisions (current focus)
+## A04 Triads (current focus)
+- No-build page: `index.html`, `style.css`, `script.js`, `firebase-config.js`. Colors only (an images mode was built and then removed at the user's request).
+- Piano C4–C6, Web Audio synth. Computer keys A–' (black keys W E T Y U O P), Z/X octave, or tap. Holding three keys of a triad sets the chord.
+- Each note shows a color in one of three frames, lowest on the left; hue comes from the circle of fifths (`colorFor`).
+- Chord picker (root + major/minor/diminished/augmented), three buttons to play one inversion, and Play the set (all three inversions, then "The set, in silence": the three color orders side by side).
+- Save a set (name + chord) to localStorage and the Firestore `triadsSets` wall; click a wall card to load it. Rules for `triadsSets` are in `firestore.rules` but **not deployed** yet, so saves only stay in the browser.
+- Portfolio post: content/itp/semester-3/shared-minds/04-time.md (title 04 Triads, `live:` link, square thumbnail 04-time-thumb.png). The "The idea" section still describes images.
+- The HW 4 PDF stays local (ignored).
+
+## A07 Decisions
 - three.js 0.160 (importmap, no build). `world.js` builds the scene, styles and figure; `script.js` runs the game, judge and controls.
 - World: hill, instanced trees, stream, climbable mountains (heightfield with contour lines), a cave at the foot of the left mountain with a low door (1.9) that only children fit through, a sun that crosses the sky over a lifetime.
 - Two looks: Ink (default, black outlines on white like the sketch) and Watercolor; `?style=` or localStorage `decisions-style`.

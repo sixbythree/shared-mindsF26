@@ -25,6 +25,15 @@
   - [x] Water-ripple ring animation (off with reduced motion)
   - [x] 367-word list (`words.js`); per-player no-repeat history from saved rounds
   - [x] Fairer clue check for short secret words ("giant" allowed for ant)
+- [x] Triads (A04), 2026-10-29, in `a04_triads/`
+  - [x] Portfolio post written from the HW 4 notes (04 Triads), with the notes, sketch and a square thumbnail
+  - [x] Piano C4–C6 playable with the computer keyboard or touch; held triads set the chord
+  - [x] Each note shows a circle-of-fifths color in three frames (images mode built, then removed)
+  - [x] Buttons to play each inversion; Play the set, then the three orders in silence
+  - [x] Save sets (name + chord) to localStorage and a Firestore wall
+  - [x] Card on the root index (03; 100, Charades, Decisions now 04–06); live link in the post
+  - [ ] Deploy the `triadsSets` Firestore rules
+  - [ ] Update the post's idea section for colors
 - [x] 05 Decisions (A07), 2026-10-28, in `a07_spatial/`
   - [x] three.js world from the sketch: hill, trees, stream, sun, climbable mountains with contour lines, cave
   - [x] Ink and Watercolor looks with a toggle

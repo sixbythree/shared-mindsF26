@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Triads: a piano you play with your keyboard, where each chord inversion shows the same three colors in a different order.">
+  <title>Triads — Shared Minds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="firebase-config.js" defer></script>
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="back-link" href="https://www.six-hq.com/itp/semester-3/shared-minds/04-time">&larr; Back to the post</a>
+    <h1>Triads</h1>
+    <p class="lede">Three colors, one for each note of a chord. A chord's three inversions play the same notes in a different order, so they show the same colors in a different order. Play the set, then watch it again in silence. How does each order feel?</p>
+  </header>
+
+  <main>
+    <section class="stage" aria-label="The three frames">
+      <div class="frames" id="frames">
+        <figure class="frame" data-slot="0"><div class="frame-art"></div><figcaption></figcaption></figure>
+        <figure class="frame" data-slot="1"><div class="frame-art"></div><figcaption></figcaption></figure>
+        <figure class="frame" data-slot="2"><div class="frame-art"></div><figcaption></figcaption></figure>
+      </div>
+      <p class="now-playing" id="now-playing" aria-live="polite">&nbsp;</p>
+    </section>
+
+    <section class="piano-wrap" aria-label="Piano">
+      <div class="piano" id="piano"></div>
+      <p class="hint">Play with <kbd>A</kbd>–<kbd>'</kbd> (black keys on <kbd>W</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd>), <kbd>Z</kbd>/<kbd>X</kbd> to change octave, or tap the keys. Hold three keys of a triad to pick that chord.</p>
+    </section>
+
+    <section class="controls">
+      <div class="control-row">
+        <div class="field">
+          <span class="label">Chord</span>
+          <div class="chord-pick">
+            <select id="root-select" aria-label="Root"></select>
+            <select id="quality-select" aria-label="Quality">
+              <option value="major">major</option>
+              <option value="minor">minor</option>
+              <option value="diminished">diminished</option>
+              <option value="augmented">augmented</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Play</span>
+          <div class="inversions" role="group" aria-label="Play one inversion">
+            <button type="button" data-inversion="0">Root position</button>
+            <button type="button" data-inversion="1">First inversion</button>
+            <button type="button" data-inversion="2">Second inversion</button>
+          </div>
+        </div>
+        <button id="play-button" class="play-button" type="button">Play the set</button>
+      </div>
+
+      <p class="status" id="status" aria-live="polite"></p>
+    </section>
+
+    <section class="set" id="set" hidden>
+      <h2>The set, in silence</h2>
+      <p class="muted">The same three colors in three orders.</p>
+      <ol class="set-rows" id="set-rows"></ol>
+      <form id="save-form" class="save-form">
+        <input id="name-input" maxlength="40" autocomplete="given-name" placeholder="Your name" required>
+        <button type="submit">Save to the wall</button>
+      </form>
+    </section>
+
+    <section class="wall">
+      <h2>The wall</h2>
+      <p class="muted">Sets other people played. Click one to load it.</p>
+      <ul class="wall-list" id="wall"><li class="muted">Loading…</li></ul>
+    </section>
+  </main>
+</body>
+</html>

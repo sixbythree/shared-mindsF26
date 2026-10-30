@@ -1,5 +1,10 @@
 # Roadmap — Shared Minds
 
+## Triads (A04) follow-ups
+- Deploy the `triadsSets` Firestore rules so saved sets reach the shared wall
+- Update the portfolio post's idea section to say the app uses colors
+- Decide whether the wall is still worth keeping now that sets are just a name and a chord
+
 ## Textual Charades (A06) follow-ups
 - Accept near-synonym matches (e.g. "kitten" for "cat") using an embedding-similarity threshold or LLM judge
 - Multiplayer rooms: humans guess alongside the machine in real time

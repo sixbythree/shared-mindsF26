@@ -288,6 +288,25 @@ service cloud.firestore {
       }
     }
 
+    // A04 Triads: a played chord's three inversions as colors.
+    match /triadsSets/{setId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly([
+          'makerName', 'root', 'quality', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'makerName', 'root', 'quality', 'createdAt'
+        ])
+        && request.resource.data.makerName is string
+        && request.resource.data.makerName.size() > 0
+        && request.resource.data.makerName.size() <= 40
+        && request.resource.data.root is int
+        && request.resource.data.root >= 0
+        && request.resource.data.root <= 11
+        && request.resource.data.quality in ['major', 'minor', 'diminished', 'augmented']
+        && request.resource.data.createdAt == request.time;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
