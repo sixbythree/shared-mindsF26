@@ -39,7 +39,10 @@ const inversionButtons = [...document.querySelectorAll(".inversions button")];
 const statusMessage = document.querySelector("#status");
 const nowPlaying = document.querySelector("#now-playing");
 const setSection = document.querySelector("#set");
-const setRows = document.querySelector("#set-rows");
+const slideFrames = document.querySelector("#slide-frames");
+const slideName = document.querySelector("#slide-name");
+const slideDots = [...document.querySelectorAll("#slide-dots button")];
+let slideIndex = 0;
 const saveForm = document.querySelector("#save-form");
 const nameInput = document.querySelector("#name-input");
 const wall = document.querySelector("#wall");
@@ -249,6 +252,11 @@ function followHands() {
 
 function onKeyDown(event) {
   if (event.target.closest("input, select, textarea") || event.metaKey || event.ctrlKey || event.altKey) return;
+  if ((event.code === "ArrowLeft" || event.code === "ArrowRight") && !setSection.hidden) {
+    event.preventDefault();
+    showSlide(slideIndex + (event.code === "ArrowRight" ? 1 : -1));
+    return;
+  }
   if (event.code === "KeyZ" || event.code === "KeyX") {
     state.baseMidi = Math.min(72, Math.max(60, state.baseMidi + (event.code === "KeyX" ? 12 : -12)));
     labelKeys();
@@ -365,33 +373,26 @@ async function playSet() {
 
   nowPlaying.textContent = "Now in silence.";
   showStage(inversionNotes(0));
-  renderSetRows();
+  showSlide(0);
   setSection.hidden = false;
   setSection.scrollIntoView({ behavior: "smooth", block: "start" });
   setPlaying(false);
 }
 
-function renderSetRows() {
+// The played set in silence, one inversion at a time; wraps around at either end.
+function showSlide(index) {
   const set = state.lastSet;
-  setRows.replaceChildren(...[0, 1, 2].map((inversion) => {
-    const row = document.createElement("li");
-    row.className = "set-row";
-    const name = document.createElement("div");
-    name.className = "set-row-name";
-    const title = document.createElement("strong");
-    title.textContent = INVERSION_NAMES[inversion];
-    const order = document.createElement("span");
-    order.textContent = inversionNotes(inversion, set.root, set.quality).map((note) => note.tone + 1).join(" · ");
-    name.append(title, order);
-    const minis = inversionNotes(inversion, set.root, set.quality).map((note) => {
-      const mini = document.createElement("div");
-      mini.className = "mini";
-      mini.append(swatchFor(note.midi));
-      return mini;
-    });
-    row.append(name, ...minis);
-    return row;
+  if (!set) return;
+  slideIndex = (index + 3) % 3;
+  const notes = inversionNotes(slideIndex, set.root, set.quality);
+  slideFrames.replaceChildren(...notes.map((note) => {
+    const mini = document.createElement("div");
+    mini.className = "mini";
+    mini.append(swatchFor(note.midi));
+    return mini;
   }));
+  slideName.textContent = `${INVERSION_NAMES[slideIndex]} · ${notes.map((note) => note.tone + 1).join(" · ")}`;
+  slideDots.forEach((dot, dotIndex) => dot.setAttribute("aria-current", String(dotIndex === slideIndex)));
 }
 
 /* ---------- Saving and the wall ---------- */
@@ -517,6 +518,9 @@ qualitySelect.addEventListener("change", () => setChord(state.root, qualitySelec
 playButton.addEventListener("click", playSet);
 inversionButtons.forEach((button) => button.addEventListener("click", () => playOne(Number(button.dataset.inversion))));
 saveForm.addEventListener("submit", saveSet);
+document.querySelector("#slide-prev").addEventListener("click", () => showSlide(slideIndex - 1));
+document.querySelector("#slide-next").addEventListener("click", () => showSlide(slideIndex + 1));
+slideDots.forEach((dot) => dot.addEventListener("click", () => showSlide(Number(dot.dataset.slide))));
 window.addEventListener("keydown", onKeyDown);
 window.addEventListener("keyup", onKeyUp);
 window.addEventListener("blur", releaseAll);

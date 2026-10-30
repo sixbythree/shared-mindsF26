@@ -17,9 +17,9 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 
 ## A04 Triads (current focus)
 - No-build page: `index.html`, `style.css`, `script.js`, `firebase-config.js`. Colors only (an images mode was built and then removed at the user's request).
-- Piano C4–C6, Web Audio synth. Computer keys A–' (black keys W E T Y U O P), Z/X octave, or tap. Holding three keys of a triad sets the chord.
+- Piano C4–C6 (black keys drawn black, played keys light green), Web Audio synth. Computer keys A–' (black keys W E T Y U O P), Z/X octave, or tap. Holding three keys of a triad sets the chord.
 - Each note shows a color in one of three frames, lowest on the left; hue comes from the circle of fifths (`colorFor`).
-- Chord picker (root + major/minor/diminished/augmented), three buttons to play one inversion, and Play the set (all three inversions, then "The set, in silence": the three color orders side by side).
+- Chord picker (root + major/minor/diminished/augmented), three buttons to play one inversion, and Play the set (all three inversions, then "The set, in silence": a slideshow of the three color orders, one at a time, with ← → buttons, arrow keys and dots).
 - Save a set (name + chord) to localStorage and the Firestore `triadsSets` wall; click a wall card to load it. Rules for `triadsSets` are in `firestore.rules` but **not deployed** yet, so saves only stay in the browser.
 - Portfolio post: content/itp/semester-3/shared-minds/04-time.md (title 04 Triads, `live:` link, square thumbnail 04-time-thumb.png). The "The idea" section still describes images.
 - The HW 4 PDF stays local (ignored).

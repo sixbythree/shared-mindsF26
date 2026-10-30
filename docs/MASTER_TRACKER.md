@@ -30,6 +30,7 @@
   - [x] Piano C4–C6 playable with the computer keyboard or touch; held triads set the chord
   - [x] Each note shows a circle-of-fifths color in three frames (images mode built, then removed)
   - [x] Buttons to play each inversion; Play the set, then the three orders in silence
+  - [x] Silent set shown as a slideshow (arrows, arrow keys, dots); black keys drawn black
   - [x] Save sets (name + chord) to localStorage and a Firestore wall
   - [x] Card on the root index (03; 100, Charades, Decisions now 04–06); live link in the post
   - [ ] Deploy the `triadsSets` Firestore rules

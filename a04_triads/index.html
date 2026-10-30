@@ -67,7 +67,19 @@
     <section class="set" id="set" hidden>
       <h2>The set, in silence</h2>
       <p class="muted">The same three colors in three orders.</p>
-      <ol class="set-rows" id="set-rows"></ol>
+      <div class="slideshow" aria-roledescription="slideshow">
+        <button class="slide-arrow" id="slide-prev" type="button" aria-label="Previous inversion">&larr;</button>
+        <div class="slide" aria-live="polite">
+          <div class="slide-frames" id="slide-frames"></div>
+          <p class="slide-name" id="slide-name"></p>
+        </div>
+        <button class="slide-arrow" id="slide-next" type="button" aria-label="Next inversion">&rarr;</button>
+      </div>
+      <div class="slide-dots" id="slide-dots">
+        <button type="button" data-slide="0" aria-label="Root position"></button>
+        <button type="button" data-slide="1" aria-label="First inversion"></button>
+        <button type="button" data-slide="2" aria-label="Second inversion"></button>
+      </div>
       <form id="save-form" class="save-form">
         <input id="name-input" maxlength="40" autocomplete="given-name" placeholder="Your name" required>
         <button type="submit">Save to the wall</button>
