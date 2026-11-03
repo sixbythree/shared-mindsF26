@@ -35,6 +35,9 @@ const field = {
   seeds: [],
   camX: WORLD / 2,
   camV: 0,
+  camTarget: null,  // where a fist drag wants the view; the view glides toward it
+  dragVel: 0,
+  dragAt: 0,
   weedTimer: 16,
   milestone: false,
 };
@@ -242,9 +245,15 @@ function onGesture(type, data) {
   else if (type === "chop") chop(data.x * W);
   else if (type === "pinch") pinch(data.x * W, data.y * H);
   else if (type === "drag") {
-    // The field follows the fist, like dragging with the mouse.
+    // The field follows the fist like dragging with the mouse, but glides there.
+    const now = performance.now() / 1000;
+    if (field.camTarget === null) { field.camTarget = field.camX; field.dragVel = 0; field.dragAt = now; }
+    const before = field.camTarget;
+    field.camTarget = clampCam(field.camTarget - (data.dx * 1.2) / (0.8 * parallax(0.6)));
+    const gap = Math.max(1 / 60, now - field.dragAt);
+    field.dragVel += ((field.camTarget - before) / gap - field.dragVel) * 0.35;
+    field.dragAt = now;
     field.camV = 0;
-    field.camX = clampCam(field.camX - data.dx / (0.8 * parallax(0.6)));
   }
 }
 
@@ -598,6 +607,19 @@ function frame(nowMs) {
   env.sun += (sunWanted - env.sun) * Math.min(1, dt * 1.8);
   env.rain += (rainWanted - env.rain) * Math.min(1, dt * 2.2);
   env.wind = 0.3 + env.rain * 0.7;
+
+  // Fist drag: ease toward the target; when the fist opens, keep a little momentum.
+  if (field.camTarget !== null) {
+    field.camX += (field.camTarget - field.camX) * Math.min(1, dt * 9);
+    const dragging = gestures && gestures.state.active === "drag";
+    if (!dragging) {
+      const recent = performance.now() / 1000 - field.dragAt < 0.15;
+      // Carry on from where the view is (it lags the fist a little), toward the fist's last spot.
+      const toGo = field.camTarget - field.camX;
+      field.camV = (recent ? Math.max(-1.5, Math.min(1.5, field.dragVel * 0.6)) : 0) + toGo * 3;
+      field.camTarget = null;
+    }
+  }
 
   // Camera glide.
   if (field.camV) {

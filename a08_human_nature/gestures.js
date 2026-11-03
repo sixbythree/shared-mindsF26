@@ -17,12 +17,15 @@ export const TUNING = {
   minConfidence: 0.3,
   oHold: 0.35,          // seconds the O must be held before the sun comes out
   oRelease: 0.35,       // seconds without the O before the sun goes
-  swingWindow: 0.4,     // seconds a throw or chop can take
-  chopDistance: 1.3,    // shoulder widths a wrist must drop
+  swingWindow: 0.45,    // seconds a throw or chop can take
+  chopDistance: 0.9,    // shoulder widths a wrist must drop (body tracking)
   throwDistance: 1.1,   // shoulder widths a wrist must rise
-  otherArmStill: 0.7,   // the other wrist moves less than this, in shoulder widths
+  otherArmStill: 1.0,   // the other wrist moves less than this, in shoulder widths
+  handChopDrop: 2.2,    // hand sizes the hand must drop (hand tracking, for when you're close)
+  handChopWindow: 0.35, // seconds that drop can take
+  handChopMin: 0.15,    // …and at least this share of the camera's height (edge-on hands look small)
   swingCooldown: 1.1,
-  throwWait: 0.25,      // seconds a throw waits in case it was the lift before a chop
+  throwWait: 0.35,      // seconds a throw waits in case it was the lift before a chop
   // Hands. A finger is curled when its tip is closer to the wrist than its middle joint
   // (tip/pip distance ratio below curledBelow), and straight above straightAbove.
   // Measured on real handPose output: open hands 1.22–1.37, a fist 0.66–0.80.
@@ -36,6 +39,8 @@ export const TUNING = {
   backHold: 0.3,
   backRelease: 0.35,
   handTimeout: 0.45,    // seconds a hand stays after it was last seen
+  dragSmoothing: 0.55,  // 0..1, how much of each new fist position is used (lower is smoother)
+  dragDeadZone: 0.0015, // fist movements smaller than this (share of the screen) are ignored
   // Gestures never overlap: after one ends (or a quick one fires), nothing new starts for this long.
   afterHeld: 0.45,      // after sun, rain or a fist drag
   afterQuick: 0.6,      // after a pinch, throw or chop
@@ -159,6 +164,28 @@ export function createGestures({ video, onEvent, onStatus, view }) {
   // A fast one-armed swing up (throw) or down (chop).
   // A chop often starts with a quick lift, which looks like a throw, so a throw waits
   // a moment before it counts and a chop in that moment replaces it.
+  // A chop can come from body tracking or hand tracking. It fires when nothing else is
+  // running, and it also cuts off rain that has started, since raising a flat hand to chop
+  // often shows its back for a moment first.
+  function chopAllowed(t) {
+    if (t - lastSwing < TUNING.swingCooldown || state.sun || oTime > 0 || t - sunEndedAt < 0.8) return false;
+    if (active !== null && active !== "rain") return false;
+    if (active === null && t < quietUntil) return false;
+    return !tracked.some((tr) => t - tr.t < 0.3 && (tr.fist || tr.pinchFired));
+  }
+
+  function tryChop(t, x) {
+    if (!chopAllowed(t)) return false;
+    if (active === "rain") endActive(t, 0);
+    pendingThrow = null;
+    lastSwing = t;
+    quietUntil = t + TUNING.afterQuick;
+    emit("chop", { x });
+    clearHist();
+    for (const tr of tracked) tr.hist = [];
+    return true;
+  }
+
   function checkSwings(t) {
     const handBusy = tracked.some((tr) => t - tr.t < 0.3 && (tr.fist || tr.pinch || tr.back));
     if (pendingThrow && t - pendingThrow.at > TUNING.throwWait) {
@@ -169,7 +196,8 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       }
       pendingThrow = null;
     }
-    if (t - lastSwing < TUNING.swingCooldown || !free(t) || handBusy || t - sunEndedAt < 0.8) return;
+    if (t - lastSwing < TUNING.swingCooldown || t - sunEndedAt < 0.8) return;
+    const throwOk = free(t) && !handBusy;
     const ls = bodyPoint("left_shoulder");
     const rs = bodyPoint("right_shoulder");
     if (!ls || !rs) return;
@@ -197,15 +225,13 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       const { last, high, low } = a;
       const drop = (last.v - high.v) / sw;
       const rise = (low.v - last.v) / sw;
-      if (drop > TUNING.chopDistance && high.t < last.t && high.v < shoulderV && last.v > shoulderV + 0.3 * sw) {
-        pendingThrow = null;
-        lastSwing = t;
-        quietUntil = t + TUNING.afterQuick;
-        emit("chop", { x: clamp01(toScreen(last).x) });
-        clearHist();
-        return;
+      if (drop > TUNING.chopDistance && high.t < last.t && high.v < shoulderV + 0.1 * sw && last.v > shoulderV + 0.15 * sw) {
+        if (tryChop(t, clamp01(toScreen(last).x))) return;
       }
-      if (!pendingThrow && rise > TUNING.throwDistance && low.t < last.t && low.v > shoulderV && last.v < shoulderV - 0.1 * sw) {
+      // A throw ends with the hand up high, above your nose; a chop's wind-up usually stops lower.
+      const nose = bodyPoint("nose");
+      const highEnough = last.v < (nose ? nose.v : shoulderV - 0.6 * sw);
+      if (throwOk && !pendingThrow && rise > TUNING.throwDistance && low.t < last.t && low.v > shoulderV && highEnough) {
         pendingThrow = { at: t, x: clamp01(toScreen(last).x), from: clamp01(toScreen(low).x) };
         return;
       }
@@ -296,7 +322,8 @@ export function createGestures({ video, onEvent, onStatus, view }) {
     for (const info of seen) {
       // Match to the closest tracked hand from the last result.
       let best = null;
-      let bestD = 0.25;
+      // A fast hand can jump far between samples; with one hand in view, allow more.
+      let bestD = seen.length === 1 ? 0.45 : 0.25;
       for (const tr of tracked) {
         if (next.includes(tr)) continue;
         const d = dist(tr.info.palm, info.palm);
@@ -337,12 +364,33 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       const wasFist = tr.fist;
       if (!tr.fist && info.curled >= 3) tr.fist = true;
       else if (tr.fist && info.straight >= 3) tr.fist = false;
+      // Fist drag: follow a smoothed palm and ignore tiny jitter.
       if (active === "drag" && tr === dragHand && tr.fist && wasFist && tr.lastPalm) {
-        const a = toScreen(tr.lastPalm);
-        const b = toScreen(info.palm);
-        onEvent("drag", { dx: b.x - a.x, dy: b.y - a.y });
+        const a = TUNING.dragSmoothing;
+        const sm = { u: tr.lastPalm.u + (info.palm.u - tr.lastPalm.u) * a, v: tr.lastPalm.v + (info.palm.v - tr.lastPalm.v) * a };
+        const p0 = toScreen(tr.lastPalm);
+        const p1 = toScreen(sm);
+        if (Math.hypot(p1.x - p0.x, p1.y - p0.y) > TUNING.dragDeadZone) {
+          onEvent("drag", { dx: p1.x - p0.x, dy: p1.y - p0.y });
+          tr.lastPalm = sm;
+        }
+      } else {
+        tr.lastPalm = tr.fist ? info.palm : null;
       }
-      tr.lastPalm = tr.fist ? info.palm : null;
+
+      // Chop from hand tracking: the hand drops fast and mostly straight down.
+      tr.hist = (tr.hist || []).filter((h) => t - h.t <= TUNING.handChopWindow);
+      tr.hist.push({ t, u: info.pts[0].u, v: info.pts[0].v });
+      if (!tr.fist && tr.hist.length >= 2) {
+        let high = tr.hist[0];
+        for (const h of tr.hist) if (h.v < high.v) high = h;
+        const last = tr.hist[tr.hist.length - 1];
+        const dv = last.v - high.v;
+        const du = Math.abs(last.u - high.u) * aspect;
+        if (high.t < last.t && dv > Math.max(TUNING.handChopMin, TUNING.handChopDrop * info.size) && du < dv * 0.9) {
+          tryChop(t, clamp01(toScreen(last).x));
+        }
+      }
 
       tr.info = info;
       tr.t = t;
