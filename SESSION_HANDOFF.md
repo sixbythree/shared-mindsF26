@@ -1,6 +1,6 @@
 # Session Handoff — Shared Minds (NYU ITP, Fall 2026)
 
-_Last updated: 2026-10-29_
+_Last updated: 2026-11-03_
 
 ## What this repo is
 Weekly assignments for the Shared Minds class, published as a static site on GitHub Pages (`index.html` at the root links to each project). Shared backend: Firebase project `shared-mindsf26` (Firestore, rules in `firestore.rules`) and the ITP/IMA Replicate proxy (`https://itp-ima-replicate-proxy.web.app/api/create_n_get`).
@@ -14,8 +14,18 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 | 04 | `a05_100/` | Draft 2026-10-26: 100, a social app capped at 100 connections (see below) |
 | 05 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
 | 06 | `a07_spatial/` | Built 2026-10-28: Decisions (see below). Live: https://sixbythree.github.io/shared-mindsF26/a07_spatial/ |
+| 07 | `a08_human_nature/` | Built 2026-11-03: Human Nature (see below). Live: https://sixbythree.github.io/shared-mindsF26/a08_human_nature/ |
 
-## A04 Triads (current focus)
+## A08 Human Nature (current focus)
+- No-build page: `index.html`, `style.css`, `script.js` (field, render loop, keyboard fallback), `plants.js` (species, growth rules, drawing), `gestures.js` (webcam + ml5 1.4.0, loaded only when the camera starts).
+- ml5 without p5: `ml5.bodyPose()` / `ml5.handPose()` return promises and must be awaited. bodyPose is MoveNet SINGLEPOSE_LIGHTNING; handPose is `lite`, 2 hands. Positions are mirrored by hand (no `flipped`), with distances corrected for the camera's aspect ratio.
+- Gestures: O over the head (held 0.35s) = sun; finger flutter on an open hand = rain; one arm up fast = throw seeds; one flat hand down fast = chop (a throw waits 0.25s so a chop's wind-up doesn't count as a throw); fist = drag the view; pinch = plant card. Thresholds are in `TUNING` at the top of `gestures.js`. Tested with synthetic poses (14 checks), **not yet with a real person on camera**.
+- Keyboard fallback: hold O sun, R rain; S throw / C chop at the mouse; drag to pan; click a plant.
+- Plants: 7 crops (tomato, pepper, eggplant, blueberry, strawberry, sunflower, pumpkin) and 4 weeds (dandelion, thistle, crabgrass, bindweed). Crops grow only in the sun, need water, flower, then fruit ripens in the sun. Barren chance 12% + thirst time. Weeds grow on water alone, drink from neighbours, spread. Pace numbers in `RULES` in `plants.js`.
+- Field is 3 screens wide, saved to localStorage (`human-nature-field-v1`). `?speed=10` fast-forwards time for testing and demos.
+- Portfolio post: content/itp/semester-3/shared-minds/08-body.md (title 08 Human Nature, notes, three screenshots, square thumbnail, `live:` link).
+
+## A04 Triads
 - No-build page: `index.html`, `style.css`, `script.js`, `firebase-config.js`. Colors only (an images mode was built and then removed at the user's request).
 - Piano C4–C6 (black keys drawn black, played keys light green), Web Audio synth. Computer keys A–' (black keys W E T Y U O P), Z/X octave, or tap. Holding three keys of a triad sets the chord.
 - Each note shows a color in one of three frames, lowest on the left; hue comes from the circle of fifths (`colorFor`).

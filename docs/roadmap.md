@@ -1,5 +1,11 @@
 # Roadmap — Shared Minds
 
+## Human Nature (A08) follow-ups
+- Play-test with a real body on camera; tune the O, flutter, throw and chop thresholds (`TUNING` in `gestures.js`)
+- Harvest: pick ripe fruit (maybe a grab gesture) and keep a running total
+- Seasons or a day/night cycle so the field changes over a longer session
+- A shared field in Firestore so several people tend the same plants
+
 ## Triads (A04) follow-ups
 - Deploy the `triadsSets` Firestore rules so saved sets reach the shared wall
 - Update the portfolio post's idea section to say the app uses colors

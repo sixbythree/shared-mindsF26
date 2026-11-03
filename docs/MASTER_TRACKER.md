@@ -49,6 +49,16 @@
   - [ ] Portfolio post deployed to six-hq.com
   - [ ] Full play-test with the real judge (taking items, getting stuck, ending) on desktop and phone
 
+- [x] 07 Human Nature (A08), 2026-11-03, in `a08_human_nature/`
+  - [x] Portfolio post written from the HW 8 notes (08 Human Nature), with the notes, three screenshots and a square thumbnail
+  - [x] Webcam + ml5 bodyPose and handPose (loaded only when the camera starts)
+  - [x] Gestures: O = sun, finger flutter = rain, throw = seeds, karate chop = cut, fist = drag, pinch = plant card
+  - [x] Field of 7 crops and 4 weeds that grow, dry out, flower, fruit, go barren, die and spread
+  - [x] Plants lean toward the screen in the sun and rest without it
+  - [x] Keyboard and mouse fallback; field saved in the browser; `?speed=` for demos
+  - [x] Card on the root index (07)
+  - [ ] Play-test the gestures with a real person on camera and tune `TUNING`
+
 ## In progress
 - [ ] 03 100 (A05), draft started 2026-10-26 in `a05_100/`
   - [x] Rules module (`rules.js`): 100-connection cap, 7-day window, 3-of-7 engagement, 5-min calls, 30-day block, New York calendar days

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Human Nature: tend a field of plants with your body. Make an O for the sun, drizzle your fingers for rain, throw seeds and chop down weeds.">
+  <title>Human Nature — Shared Minds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="script.js"></script>
+</head>
+<body data-mode="intro">
+  <canvas id="field" aria-label="A field of plants and grass under the sky. Use your body in front of the camera, or the keyboard, to bring sun and rain, throw seeds and cut down weeds."></canvas>
+
+  <header class="hud">
+    <a class="back-link" href="https://www.six-hq.com/itp/semester-3/shared-minds/08-body">&larr; Back to the post</a>
+    <div class="hud-card">
+      <span class="hud-label">Bearing fruit</span>
+      <strong id="stat-fruit" class="hud-value">0</strong>
+    </div>
+    <div class="hud-card">
+      <span class="hud-label">Growing</span>
+      <strong id="stat-growing" class="hud-value">0</strong>
+    </div>
+    <div class="hud-card">
+      <span class="hud-label">To cut</span>
+      <strong id="stat-bad" class="hud-value">0</strong>
+    </div>
+    <div class="hud-card hud-water">
+      <span class="hud-label">Water</span>
+      <span class="water-bar"><span id="water-fill" class="water-fill"></span></span>
+    </div>
+    <button id="new-field" class="ghost" type="button">New field</button>
+  </header>
+
+  <p id="toast" class="toast" aria-live="polite"></p>
+
+  <aside id="camera" class="camera" hidden>
+    <video id="video" playsinline muted></video>
+    <canvas id="preview" width="240" height="180" aria-hidden="true"></canvas>
+    <div class="camera-foot">
+      <span id="gesture-label" class="gesture-label">Starting…</span>
+      <span class="meter" title="Finger flutter (rain)"><span id="meter-rain" class="meter-fill"></span></span>
+    </div>
+  </aside>
+
+  <section id="guide" class="guide" data-open="false" aria-label="Gestures">
+    <button id="guide-toggle" class="guide-toggle" type="button" aria-expanded="false" aria-controls="guide-list">Gestures</button>
+    <ul id="guide-list" class="guide-list">
+      <li><strong>Sun</strong> Make an O: arms over your head, hands together <kbd>O</kbd></li>
+      <li><strong>Rain</strong> Drizzle: flutter your fingers <kbd>R</kbd></li>
+      <li><strong>Seeds</strong> Throw: swing one arm up fast <kbd>S</kbd></li>
+      <li><strong>Cut</strong> Karate chop: swing one flat hand down fast <kbd>C</kbd></li>
+      <li><strong>Look</strong> Close your fist and pull <kbd>drag</kbd></li>
+      <li><strong>Name</strong> Pinch a plant to see what it is <kbd>click</kbd></li>
+    </ul>
+  </section>
+
+  <div id="info" class="info" hidden role="dialog" aria-labelledby="info-name">
+    <button id="info-close" class="info-close" type="button" aria-label="Close">&times;</button>
+    <span id="info-kind" class="info-kind"></span>
+    <strong id="info-name" class="info-name"></strong>
+    <em id="info-latin" class="info-latin"></em>
+    <p id="info-status" class="info-status"></p>
+    <p id="info-about" class="info-about"></p>
+  </div>
+
+  <section id="intro" class="overlay" aria-labelledby="intro-title">
+    <div class="panel">
+      <h1 id="intro-title">Human Nature</h1>
+      <p>A field is waiting for you. Your body brings the weather.</p>
+      <ul class="intro-list">
+        <li><span>Make an <strong>O</strong> with your arms over your head</span> and the sun comes out. The plants lean toward you and grow. Let go and they rest.</li>
+        <li><span><strong>Drizzle</strong> with your fingers</span> and it rains. Without rain the field dries out.</li>
+        <li><span><strong>Throw</strong></span> to scatter seeds. <span><strong>Karate chop</strong></span> to cut down weeds and plants that grew up without fruit.</li>
+        <li><span>Close your <strong>fist</strong> and pull</span> to look around. <span><strong>Pinch</strong></span> a plant to learn what it is.</li>
+      </ul>
+      <p>Grow your plants until they bear fruit.</p>
+      <p class="fine">Stand back so the camera sees you from the waist up. Video stays on your computer.</p>
+      <div class="actions">
+        <button id="start-camera" type="button">Start the camera</button>
+        <button id="start-keys" class="secondary" type="button">Use the keyboard</button>
+      </div>
+      <p class="fine keys-hint">Keyboard: hold <kbd>O</kbd> for sun, <kbd>R</kbd> for rain, <kbd>S</kbd> throws seeds and <kbd>C</kbd> chops where the mouse is, drag to look around, click a plant to name it.</p>
+    </div>
+  </section>
+</body>
+</html>
