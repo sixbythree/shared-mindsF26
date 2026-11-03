@@ -390,6 +390,14 @@ body[data-mode="camera"] .guide-list kbd {
   font-weight: 500;
 }
 
+.info-hint {
+  margin: 0.6rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
 .info-about {
   margin: 0.4rem 0 0;
   color: var(--muted);

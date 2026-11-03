@@ -127,7 +127,6 @@ let gestures = null;
 let env = { sun: 0, rain: 0, wind: 0, time: 0 };
 let effects = [];
 let infoPlant = null;
-let infoUntil = 0;
 
 function cursor() {
   if (gestures && gestures.state.cursor.visible) return { ...gestures.state.cursor, hand: true };
@@ -152,20 +151,6 @@ function pickAt(px, py, maxDist = 110) {
     const dx = Math.max(0, Math.abs(px - s.x) - s.half);
     const dy = py < s.top ? s.top - py : py > s.y + 8 ? py - s.y - 8 : 0;
     const d = Math.hypot(dx, dy) - p.z * 6;
-    if (d < bestD) { bestD = d; best = p; }
-  }
-  return best;
-}
-
-function pickColumn(px) {
-  let best = null;
-  let bestD = Infinity;
-  for (const p of field.plants) {
-    if (p.cut) continue;
-    const s = plantScreen(p);
-    const dx = Math.abs(px - s.x);
-    if (dx > Math.max(45, s.half * 1.3)) continue;
-    const d = dx - p.z * 40;
     if (d < bestD) { bestD = d; best = p; }
   }
   return best;
@@ -197,13 +182,14 @@ function throwSeeds(screenX, fromX = screenX) {
   toast(`You threw ${n} seeds.`);
 }
 
-function chop(screenX) {
-  effects.push({ type: "slash", x: screenX, t: 0 });
-  const p = pickColumn(screenX);
-  if (!p) { toast("Your chop hit nothing."); return; }
+// A chop only cuts the plant you selected by pinching it.
+function chop() {
+  const p = infoPlant;
+  if (!p || p.cut) { toast("Pinch a plant first to choose what to cut."); return; }
   const sp = SPECIES[p.species];
+  effects.push({ type: "slash", x: plantScreen(p).x, t: 0 });
   p.cut = { t: 0, dir: Math.random() < 0.5 ? -1 : 1 };
-  if (infoPlant === p) hideInfo();
+  hideInfo();
   if (p.dead) toast(`You cleared a dead ${sp.name.toLowerCase()}.`, "good");
   else if (sp.kind === "weed") toast(`You cut down ${a(sp.name.toLowerCase())}. Good.`, "good");
   else if (p.barren) toast(`You cut down ${a(sp.name.toLowerCase())} that never fruited. Good.`, "good");
@@ -212,7 +198,6 @@ function chop(screenX) {
 
 function showInfo(p) {
   infoPlant = p;
-  infoUntil = performance.now() / 1000 + 7;
   renderInfo();
   $("info").hidden = false;
 }
@@ -231,18 +216,21 @@ function renderInfo() {
   $("info-status").textContent = `${d.status} ${d.water}`.trim();
   $("info").dataset.bad = d.bad ? "true" : "false";
   $("info-kind").textContent = d.kind === "weed" ? "Weed" : d.bad ? "Cut it down" : "Crop";
+  const keys = document.body.dataset.mode !== "camera";
+  $("info-hint").textContent = keys ? "Press C to cut it down. Click again to close." : "Karate chop to cut it down. Pinch again to close.";
 }
 
+// Pinch (or click) a plant to select it and open its card. Pinch again to close it.
 function pinch(sx, sy) {
+  if (infoPlant) { hideInfo(); return; }
   const p = pickAt(sx, sy);
   if (p) showInfo(p);
-  else hideInfo();
 }
 
 function onGesture(type, data) {
   if (type === "sun") return;
   if (type === "throw") throwSeeds(data.x * W, data.from * W);
-  else if (type === "chop") chop(data.x * W);
+  else if (type === "chop") chop();
   else if (type === "pinch") pinch(data.x * W, data.y * H);
   else if (type === "drag") {
     // The field follows the fist like dragging with the mouse, but glides there.
@@ -266,7 +254,7 @@ window.addEventListener("keydown", (e) => {
   if (k === "o") input.sunKey = true;
   else if (k === "r") input.rainKey = true;
   else if (k === "s" && !e.repeat) throwSeeds(input.mouse.x * W);
-  else if (k === "c" && !e.repeat) chop(input.mouse.x * W);
+  else if (k === "c" && !e.repeat) chop();
   else if (k === "arrowleft") field.camV = -0.9;
   else if (k === "arrowright") field.camV = 0.9;
   else return;
@@ -574,7 +562,27 @@ function drawGhosts(dt) {
 }
 
 function drawCursor(c, hover) {
-  if (hover) {
+  // The selected plant: a ring at its base, and a dashed line up its height.
+  if (infoPlant && !infoPlant.cut) {
+    const s = plantScreen(infoPlant);
+    const pulse = 0.5 + 0.5 * Math.sin(env.time * 4);
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, s.half * 1.25, s.half * 0.36, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = isBad(infoPlant) ? `rgba(194,73,43,${0.6 + 0.4 * pulse})` : `rgba(255,255,255,${0.6 + 0.4 * pulse})`;
+    ctx.stroke();
+    ctx.setLineDash([4, 6]);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(s.x - s.half * 1.25, s.y);
+    ctx.lineTo(s.x - s.half * 1.25, s.top);
+    ctx.moveTo(s.x + s.half * 1.25, s.y);
+    ctx.lineTo(s.x + s.half * 1.25, s.top);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (hover && hover !== infoPlant) {
     const s = plantScreen(hover);
     ctx.beginPath();
     ctx.ellipse(s.x, s.y, s.half * 1.1, s.half * 0.3, 0, 0, Math.PI * 2);
@@ -666,7 +674,7 @@ function frame(nowMs) {
   saveTimer -= dt;
   if (saveTimer <= 0) { saveTimer = 5; save(); }
   if (infoPlant) {
-    if (performance.now() / 1000 > infoUntil || infoPlant.cut) hideInfo();
+    if (infoPlant.cut) hideInfo();
     else positionInfo();
   }
 
