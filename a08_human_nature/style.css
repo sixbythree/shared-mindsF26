@@ -208,26 +208,22 @@ kbd {
   position: fixed;
   left: 0.9rem;
   bottom: 0.9rem;
-  width: 240px;
-  overflow: hidden;
-  border-radius: 14px;
+  min-width: 13rem;
+  border-radius: 999px;
   background: var(--panel);
   backdrop-filter: blur(8px);
   z-index: 3;
 }
 
-.camera video {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
+/* The video only feeds the models; your ghost hands are drawn on the field instead. */
+.camera-video {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  height: 3px;
+  opacity: 0.01;
   pointer-events: none;
-}
-
-.camera canvas {
-  display: block;
-  width: 240px;
-  height: 180px;
 }
 
 .camera-foot {
@@ -476,12 +472,8 @@ body[data-mode="camera"] .guide-list kbd {
   .water-bar {
     width: 3.5rem;
   }
-  .camera,
-  .camera canvas {
-    width: 160px;
-  }
-  .camera canvas {
-    height: 120px;
+  .camera {
+    min-width: 10rem;
   }
   .panel {
     padding: 1.5rem 1.3rem;

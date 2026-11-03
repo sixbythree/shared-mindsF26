@@ -1,5 +1,5 @@
 import { SPECIES, CROPS, WEEDS, RULES, createPlant, syncNextId, stepPlant, drawPlant, describe, isBad, isRipe, mix, rgba } from "./plants.js";
-import { createGestures, toScreen } from "./gestures.js";
+import { createGestures, HAND_BONES, PALM } from "./gestures.js";
 
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
@@ -238,14 +238,13 @@ function pinch(sx, sy) {
 
 function onGesture(type, data) {
   if (type === "sun") return;
-  if (type === "throw") throwSeeds(toScreen(data.x) * W, toScreen(data.from) * W);
-  else if (type === "chop") chop(toScreen(data.x) * W);
-  else if (type === "pinch") {
-    const c = gestures.state.cursor;
-    pinch(c.x * W, c.y * H);
-  } else if (type === "drag") {
+  if (type === "throw") throwSeeds(data.x * W, data.from * W);
+  else if (type === "chop") chop(data.x * W);
+  else if (type === "pinch") pinch(data.x * W, data.y * H);
+  else if (type === "drag") {
+    // The field follows the fist, like dragging with the mouse.
     field.camV = 0;
-    field.camX = clampCam(field.camX - data.dx * 2.2);
+    field.camX = clampCam(field.camX - data.dx / (0.8 * parallax(0.6)));
   }
 }
 
@@ -439,6 +438,167 @@ function drawEffects(dt) {
   }
 }
 
+// ---------- ghost hands ----------
+// Your hands and arms, floating over the field as soft white shapes with dotted joints.
+// They take on each gesture: warm when you make a fist, a glow at the fingertips when you
+// pinch, blue with falling drops when you drizzle, gold when you hold the O.
+
+const ghostCanvas = document.createElement("canvas");
+const gctx = ghostCanvas.getContext("2d");
+const ghostDrops = [];
+
+function ghostLayer() {
+  const w = Math.round(W * dpr);
+  const h = Math.round(H * dpr);
+  if (ghostCanvas.width !== w || ghostCanvas.height !== h) {
+    ghostCanvas.width = w;
+    ghostCanvas.height = h;
+  }
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.clearRect(0, 0, w, h);
+  gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  gctx.lineCap = "round";
+  gctx.lineJoin = "round";
+}
+
+function stampGhost(alpha) {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(ghostCanvas, 0, 0);
+  ctx.restore();
+}
+
+function drawGhostArms(arms, oProgress, sun) {
+  if (!arms) return;
+  const P = (p) => [p.x * W, p.y * H];
+  const sw = arms.ls && arms.rs ? Math.hypot((arms.ls.x - arms.rs.x) * W, (arms.ls.y - arms.rs.y) * H) : W * 0.1;
+  const width = Math.max(10, sw * 0.16);
+  ghostLayer();
+  const glow = sun ? "#ffe27a" : mix("#ffffff", "#ffe27a", oProgress);
+  for (const pass of [0, 1]) {
+    gctx.strokeStyle = pass ? glow : "#2c3a26";
+    gctx.lineWidth = pass ? width : width + 4;
+    for (const [a, b, c] of [[arms.ls, arms.le, arms.lw], [arms.rs, arms.re, arms.rw]]) {
+      if (!a || !b) continue;
+      gctx.beginPath();
+      gctx.moveTo(...P(a));
+      gctx.lineTo(...P(b));
+      if (c) gctx.lineTo(...P(c));
+      gctx.stroke();
+    }
+    if (arms.ls && arms.rs) {
+      gctx.beginPath();
+      gctx.moveTo(...P(arms.ls));
+      gctx.lineTo(...P(arms.rs));
+      gctx.stroke();
+    }
+    if (arms.nose) {
+      gctx.beginPath();
+      gctx.arc(...P(arms.nose), sw * 0.2 + (pass ? 0 : 2), 0, Math.PI * 2);
+      gctx.fillStyle = pass ? glow : "#2c3a26";
+      gctx.fill();
+    }
+  }
+  stampGhost(0.18 + 0.3 * oProgress);
+}
+
+function drawGhostHand(hand, dt) {
+  const pts = hand.pts.map((p) => ({ x: p.x * W, y: p.y * H }));
+  const size = Math.max(16, Math.hypot(pts[0].x - pts[9].x, pts[0].y - pts[9].y));
+  const bone = size * 0.3;
+  const fill = hand.fist ? "#ffe3a8" : hand.drizzle ? "#cfe5ff" : "#ffffff";
+
+  ghostLayer();
+  for (const pass of [0, 1]) {
+    gctx.strokeStyle = pass ? fill : "#2c3a26";
+    gctx.fillStyle = pass ? fill : "#2c3a26";
+    gctx.lineWidth = pass ? bone : bone + 4;
+    gctx.beginPath();
+    PALM.forEach((i, k) => (k ? gctx.lineTo(pts[i].x, pts[i].y) : gctx.moveTo(pts[i].x, pts[i].y)));
+    gctx.closePath();
+    gctx.fill();
+    gctx.stroke();
+    gctx.beginPath();
+    for (const [a, b] of HAND_BONES) {
+      gctx.moveTo(pts[a].x, pts[a].y);
+      gctx.lineTo(pts[b].x, pts[b].y);
+    }
+    gctx.stroke();
+  }
+  stampGhost(0.55 * hand.alpha);
+
+  // Dotted joints.
+  ctx.save();
+  ctx.globalAlpha = 0.75 * hand.alpha;
+  ctx.fillStyle = "#2c3a26";
+  for (const p of pts) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(1.5, size * 0.045), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // A dashed outline traced around the fingertips, like a sketch.
+  ctx.setLineDash([3, 6]);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(44,58,38,0.7)";
+  for (const tip of [4, 8, 12, 16, 20]) {
+    ctx.beginPath();
+    ctx.arc(pts[tip].x, pts[tip].y, bone * 0.75, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // Pinch: a glow where thumb meets index.
+  if (hand.pinch) {
+    const x = (pts[4].x + pts[8].x) / 2;
+    const y = (pts[4].y + pts[8].y) / 2;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, size * 0.6);
+    g.addColorStop(0, "rgba(255,255,255,0.95)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Drizzle: drops fall from the fingertips.
+  if (hand.drizzle && hand.alpha > 0.5) {
+    for (const tip of [8, 12, 16, 20]) {
+      if (Math.random() < dt * 9) ghostDrops.push({ x: pts[tip].x, y: pts[tip].y, vy: 80 + Math.random() * 60, life: 0.9 });
+    }
+  }
+
+  // The gesture's name under the wrist.
+  const name = hand.fist ? "fist" : hand.pinch ? "pinch" : hand.drizzle ? "drizzle" : "";
+  if (name) {
+    ctx.globalAlpha = hand.alpha;
+    ctx.font = `700 ${Math.round(Math.max(18, size * 0.32))}px Caveat, cursive`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#2c3a26";
+    ctx.fillText(name, pts[0].x, pts[0].y + size * 0.55);
+  }
+  ctx.restore();
+}
+
+function drawGhosts(dt) {
+  if (!gestures || !gestures.state.ready) return;
+  const st = gestures.state;
+  drawGhostArms(st.arms, st.oProgress, st.sun);
+  for (const hand of st.hands) if (hand.alpha > 0.02) drawGhostHand(hand, dt);
+
+  for (let i = ghostDrops.length - 1; i >= 0; i--) {
+    const d = ghostDrops[i];
+    d.life -= dt;
+    d.vy += 500 * dt;
+    d.y += d.vy * dt;
+    if (d.life <= 0) { ghostDrops.splice(i, 1); continue; }
+    ctx.fillStyle = `rgba(120,170,230,${Math.min(1, d.life * 1.5)})`;
+    ctx.beginPath();
+    ctx.ellipse(d.x, d.y, 2.5, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function drawCursor(c, hover) {
   if (hover) {
     const s = plantScreen(hover);
@@ -447,18 +607,13 @@ function drawCursor(c, hover) {
     ctx.fillStyle = isBad(hover) ? "rgba(214,80,50,0.28)" : "rgba(255,255,255,0.35)";
     ctx.fill();
   }
-  if (!c.visible || !c.hand) return;
-  const x = c.x * W;
-  const y = c.y * H;
+  if (!c.visible || !c.hand || c.fist) return;
+  // A small target between thumb and index: this is where a pinch picks.
   ctx.beginPath();
-  ctx.arc(x, y, c.pinch ? 8 : c.fist ? 16 : 13, 0, Math.PI * 2);
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = "rgba(255,255,255,0.95)";
+  ctx.arc(c.x * W, c.y * H, 6, 0, Math.PI * 2);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(44,58,38,0.8)";
   ctx.stroke();
-  if (c.pinch || c.fist) {
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.fill();
-  }
 }
 
 // ---------- loop ----------
@@ -509,6 +664,7 @@ function frame(nowMs) {
   drawSeeds();
   drawRain();
   drawEffects(dt);
+  drawGhosts(dt);
   drawCursor(c, hover);
 
   // Rain falls.
@@ -600,7 +756,7 @@ function updateStats() {
   }
   if (gestures && gestures.state.ready) {
     $("gesture-label").textContent = gestures.state.label;
-    $("meter-rain").style.width = `${Math.min(100, (gestures.state.flutter || 0) / 0.12 * 100)}%`;
+    $("meter-rain").style.width = `${Math.min(100, (gestures.state.flutter || 0) / 3 * 100)}%`;
   }
   if (infoPlant) renderInfo();
 }
@@ -624,10 +780,11 @@ $("start-camera").addEventListener("click", async () => {
   document.body.dataset.mode = "camera";
   gestures = createGestures({
     video: $("video"),
-    preview: $("preview"),
+    view: () => ({ w: W, h: H }),
     onEvent: onGesture,
     onStatus: (text) => { $("gesture-label").textContent = text; },
   });
+  if (new URLSearchParams(location.search).has("debug")) window.humanNature = gestures;
   try {
     await gestures.start();
     toast("Make an O with your arms over your head to bring out the sun.");
