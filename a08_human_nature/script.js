@@ -439,9 +439,9 @@ function drawEffects(dt) {
 }
 
 // ---------- ghost hands ----------
-// Your hands and arms, floating over the field as soft white shapes with dotted joints.
+// Your hands, floating over the field as soft white shapes with dotted joints.
 // They take on each gesture: warm when you make a fist, a glow at the fingertips when you
-// pinch, blue with falling drops when you drizzle, gold when you hold the O.
+// pinch, blue with falling drops when you show the back of your hand, gold as you hold the O.
 
 const ghostCanvas = document.createElement("canvas");
 const gctx = ghostCanvas.getContext("2d");
@@ -469,45 +469,11 @@ function stampGhost(alpha) {
   ctx.restore();
 }
 
-function drawGhostArms(arms, oProgress, sun) {
-  if (!arms) return;
-  const P = (p) => [p.x * W, p.y * H];
-  const sw = arms.ls && arms.rs ? Math.hypot((arms.ls.x - arms.rs.x) * W, (arms.ls.y - arms.rs.y) * H) : W * 0.1;
-  const width = Math.max(10, sw * 0.16);
-  ghostLayer();
-  const glow = sun ? "#ffe27a" : mix("#ffffff", "#ffe27a", oProgress);
-  for (const pass of [0, 1]) {
-    gctx.strokeStyle = pass ? glow : "#2c3a26";
-    gctx.lineWidth = pass ? width : width + 4;
-    for (const [a, b, c] of [[arms.ls, arms.le, arms.lw], [arms.rs, arms.re, arms.rw]]) {
-      if (!a || !b) continue;
-      gctx.beginPath();
-      gctx.moveTo(...P(a));
-      gctx.lineTo(...P(b));
-      if (c) gctx.lineTo(...P(c));
-      gctx.stroke();
-    }
-    if (arms.ls && arms.rs) {
-      gctx.beginPath();
-      gctx.moveTo(...P(arms.ls));
-      gctx.lineTo(...P(arms.rs));
-      gctx.stroke();
-    }
-    if (arms.nose) {
-      gctx.beginPath();
-      gctx.arc(...P(arms.nose), sw * 0.2 + (pass ? 0 : 2), 0, Math.PI * 2);
-      gctx.fillStyle = pass ? glow : "#2c3a26";
-      gctx.fill();
-    }
-  }
-  stampGhost(0.18 + 0.3 * oProgress);
-}
-
-function drawGhostHand(hand, dt) {
+function drawGhostHand(hand, dt, oProgress) {
   const pts = hand.pts.map((p) => ({ x: p.x * W, y: p.y * H }));
   const size = Math.max(16, Math.hypot(pts[0].x - pts[9].x, pts[0].y - pts[9].y));
   const bone = size * 0.3;
-  const fill = hand.fist ? "#ffe3a8" : hand.drizzle ? "#cfe5ff" : "#ffffff";
+  const fill = oProgress > 0 ? mix("#ffffff", "#ffd75e", oProgress) : hand.fist ? "#ffe3a8" : hand.back ? "#cfe5ff" : "#ffffff";
 
   ghostLayer();
   for (const pass of [0, 1]) {
@@ -561,15 +527,15 @@ function drawGhostHand(hand, dt) {
     ctx.fill();
   }
 
-  // Drizzle: drops fall from the fingertips.
-  if (hand.drizzle && hand.alpha > 0.5) {
+  // Rain: drops fall from the fingertips.
+  if (hand.back && hand.alpha > 0.5) {
     for (const tip of [8, 12, 16, 20]) {
       if (Math.random() < dt * 9) ghostDrops.push({ x: pts[tip].x, y: pts[tip].y, vy: 80 + Math.random() * 60, life: 0.9 });
     }
   }
 
   // The gesture's name under the wrist.
-  const name = hand.fist ? "fist" : hand.pinch ? "pinch" : hand.drizzle ? "drizzle" : "";
+  const name = hand.fist ? "fist" : hand.pinch ? "pinch" : hand.back ? "rain" : "";
   if (name) {
     ctx.globalAlpha = hand.alpha;
     ctx.font = `700 ${Math.round(Math.max(18, size * 0.32))}px Caveat, cursive`;
@@ -583,8 +549,7 @@ function drawGhostHand(hand, dt) {
 function drawGhosts(dt) {
   if (!gestures || !gestures.state.ready) return;
   const st = gestures.state;
-  drawGhostArms(st.arms, st.oProgress, st.sun);
-  for (const hand of st.hands) if (hand.alpha > 0.02) drawGhostHand(hand, dt);
+  for (const hand of st.hands) if (hand.alpha > 0.02) drawGhostHand(hand, dt, st.oProgress);
 
   for (let i = ghostDrops.length - 1; i >= 0; i--) {
     const d = ghostDrops[i];
@@ -756,7 +721,6 @@ function updateStats() {
   }
   if (gestures && gestures.state.ready) {
     $("gesture-label").textContent = gestures.state.label;
-    $("meter-rain").style.width = `${Math.min(100, (gestures.state.flutter || 0) / 3 * 100)}%`;
   }
   if (infoPlant) renderInfo();
 }

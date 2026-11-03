@@ -2,14 +2,14 @@
 //
 // Gestures:
 //   O       both arms up over your head, hands together, elbows out   -> sun (held)
-//   drizzle open hand(s), fingers fluttering                          -> rain (held)
+//   rain    show the back of an open hand to the camera              -> rain (held)
 //   throw   one arm swings up fast                                    -> seeds
 //   chop    one flat hand swings down fast                            -> cut a plant
 //   fist    close a hand and move it                                  -> drag the view
 //   pinch   thumb and index finger together                           -> what plant is this?
 //
 // Camera positions are mirrored and normalized: u is 0 at the left, v is 0 at the top.
-// state.hands and state.arms carry the same points mapped onto the screen, for the ghost hands.
+// state.hands carries the same points mapped onto the screen, for the ghost hands.
 
 const ML5_SRC = "https://unpkg.com/ml5@1.4.0/dist/ml5.min.js";
 
@@ -30,9 +30,15 @@ export const TUNING = {
   straightAbove: 1.1,
   pinchOn: 0.42,        // thumb tip to index tip, in hand sizes (wrist to middle knuckle)
   pinchOff: 0.62,
-  drizzleOn: 1.8,       // fingertip flutter, hand sizes per second
-  drizzleOff: 1.1,
+  // Back of the hand: how flat-on the hand must be (0 is edge-on, 1 is fully flat) and
+  // how long it has to be shown before the rain starts or stops.
+  backFlatness: 0.25,
+  backHold: 0.3,
+  backRelease: 0.35,
   handTimeout: 0.45,    // seconds a hand stays after it was last seen
+  // Gestures never overlap: after one ends (or a quick one fires), nothing new starts for this long.
+  afterHeld: 0.45,      // after sun, rain or a fist drag
+  afterQuick: 0.6,      // after a pinch, throw or chop
   ghostHandSize: 0.1,   // largest drawn hand, wrist to middle knuckle, as a share of the screen
 };
 
@@ -58,13 +64,12 @@ export function createGestures({ video, onEvent, onStatus, view }) {
     ready: false,
     sun: false,
     rain: 0,          // 0..1
-    flutter: 0,
+    backShown: false,
     cursor: { x: 0.5, y: 0.5, visible: false, pinch: false, fist: false },
     label: "",
     bodySeen: false,
     handsSeen: 0,
-    hands: [],        // [{ pts: [{x,y}] (21, screen 0..1), pinch, fist, open, drizzle, alpha, size }]
-    arms: null,       // { nose, ls, rs, le, re, lw, rw } in screen 0..1, or null
+    hands: [],        // [{ pts: [{x,y}] (21, screen 0..1), pinch, fist, open, back, alpha }]
     oProgress: 0,
   };
 
@@ -78,7 +83,18 @@ export function createGestures({ video, onEvent, onStatus, view }) {
   let sunEndedAt = -10;
   let lastSwing = -10;
   let pendingThrow = null;
-  let drizzleOn = false;
+  // One gesture at a time. `active` is the held gesture running now ("sun", "rain" or
+  // "drag"); while it runs, no other gesture can start. When any gesture ends or fires,
+  // nothing new can start until `quietUntil`, so letting go of one doesn't trigger another.
+  let active = null;
+  let dragHand = null;
+  let quietUntil = 0;
+  const free = (t) => active === null && t >= quietUntil && oTime === 0;
+  function endActive(t, quiet) {
+    active = null;
+    dragHand = null;
+    quietUntil = Math.max(quietUntil, t + quiet);
+  }
   let flash = { text: "", until: 0 };
   // Tracked hands, matched between frames by where they are.
   let tracked = [];
@@ -144,12 +160,16 @@ export function createGestures({ video, onEvent, onStatus, view }) {
   // A chop often starts with a quick lift, which looks like a throw, so a throw waits
   // a moment before it counts and a chop in that moment replaces it.
   function checkSwings(t) {
+    const handBusy = tracked.some((tr) => t - tr.t < 0.3 && (tr.fist || tr.pinch || tr.back));
     if (pendingThrow && t - pendingThrow.at > TUNING.throwWait) {
-      lastSwing = t;
-      emit("throw", pendingThrow);
+      if (free(t) && !handBusy) {
+        lastSwing = t;
+        quietUntil = t + TUNING.afterQuick;
+        emit("throw", pendingThrow);
+      }
       pendingThrow = null;
     }
-    if (t - lastSwing < TUNING.swingCooldown || state.sun || t - sunEndedAt < 0.8) return;
+    if (t - lastSwing < TUNING.swingCooldown || !free(t) || handBusy || t - sunEndedAt < 0.8) return;
     const ls = bodyPoint("left_shoulder");
     const rs = bodyPoint("right_shoulder");
     if (!ls || !rs) return;
@@ -180,6 +200,7 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       if (drop > TUNING.chopDistance && high.t < last.t && high.v < shoulderV && last.v > shoulderV + 0.3 * sw) {
         pendingThrow = null;
         lastSwing = t;
+        quietUntil = t + TUNING.afterQuick;
         emit("chop", { x: clamp01(toScreen(last).x) });
         clearHist();
         return;
@@ -235,12 +256,39 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       v: (wrist.v + by.index_finger_mcp.v + by.middle_finger_mcp.v + by.pinky_finger_mcp.v) / 4,
     };
     const pinchAt = { u: (by.thumb_tip.u + by.index_finger_tip.u) / 2, v: (by.thumb_tip.v + by.index_finger_tip.v) / 2 };
-    // Fingertips relative to the wrist, in hand sizes, for flutter.
-    const rel = FINGERS.map((f) => ({ u: ((by[`${f}_tip`].u - wrist.u) * aspect) / size, v: (by[`${f}_tip`].v - wrist.v) / size }));
-    return { pts, size, ratio, curled, straight, pinchD, thumbMeetsTip, middleStraight: ratio[1] > TUNING.straightAbove, palm, pinchAt, rel };
+    return { pts, size, ratio, curled, straight, pinchD, thumbMeetsTip, middleStraight: ratio[1] > TUNING.straightAbove, palm, pinchAt, facing: facing(hand, pts) };
   }
 
-  // Runs once per new handPose result, so speeds are measured between real samples.
+  // Palm or back toward the camera. In the camera's own (unmirrored) image, a right hand with
+  // its palm toward the camera has its index knuckle on the inner side of the pinky knuckle,
+  // which makes this cross product negative; the back of the hand flips it, and a left hand
+  // is the mirror image. Checked on real handPose output from photos of palms.
+  // Which hand it is comes from the body model when a body wrist is close by (more reliable),
+  // otherwise from handPose's own guess, which labels your right hand "Left" in an unmirrored image.
+  // Returns 1 for the palm, -1 for the back, 0 when the hand is edge-on.
+  function facing(hand, pts) {
+    const kp = (n) => hand.keypoints.find((k) => k.name === n);
+    const w = kp("wrist");
+    const i = kp("index_finger_mcp");
+    const k = kp("pinky_finger_mcp");
+    const ax = i.x - w.x, ay = i.y - w.y, bx = k.x - w.x, by = k.y - w.y;
+    const flat = (ax * by - ay * bx) / Math.max(1e-6, Math.hypot(ax, ay) * Math.hypot(bx, by));
+    if (Math.abs(flat) < TUNING.backFlatness) return 0;
+    let isRight = hand.handedness ? hand.handedness === "Left" : null;
+    if (body && now() - bodyAt < 0.6) {
+      const wr = mirror(w);
+      const L = bodyPoint("left_wrist");
+      const R = bodyPoint("right_wrist");
+      const dL = L ? dist(L, wr) : Infinity;
+      const dR = R ? dist(R, wr) : Infinity;
+      if (Math.min(dL, dR) < 0.15) isRight = dR < dL;
+    }
+    if (isRight === null) return 0;
+    const palm = isRight ? flat < 0 : flat > 0;
+    return palm ? 1 : -1;
+  }
+
+  // Runs once per new handPose result.
   function gotHands(results) {
     const t = now();
     const seen = (results || []).filter((h) => h.keypoints && h.keypoints.length >= 21).map(readHand);
@@ -254,32 +302,42 @@ export function createGestures({ video, onEvent, onStatus, view }) {
         const d = dist(tr.info.palm, info.palm);
         if (d < bestD) { bestD = d; best = tr; }
       }
-      const tr = best || { pinch: false, fist: false, flutter: 0, smooth: null, alpha: 0, lastPalm: null };
-      const dt = best ? Math.max(1 / 60, t - tr.t) : 0;
+      const tr = best || { pinch: false, fist: false, back: false, backSince: null, notBackSince: null, smooth: null, alpha: 0, lastPalm: null };
 
-      if (best && dt < 0.4) {
-        let d = 0;
-        for (let k = 0; k < 4; k++) d += Math.hypot(info.rel[k].u - tr.info.rel[k].u, info.rel[k].v - tr.info.rel[k].v);
-        const speed = info.straight >= 3 && tr.info.straight >= 3 ? d / 4 / dt : 0;
-        tr.flutter += (speed - tr.flutter) * Math.min(1, dt * 5);
+      // Back of an open hand toward the camera, held for a moment, brings rain.
+      const pinchShape = info.pinchD < TUNING.pinchOn && info.thumbMeetsTip;
+      const showingBack = info.facing === -1 && info.straight >= 3 && !pinchShape;
+      if (showingBack) {
+        tr.notBackSince = null;
+        tr.backSince ??= t;
+        if (!tr.back && t - tr.backSince > TUNING.backHold) tr.back = true;
       } else {
-        tr.flutter = 0;
+        tr.backSince = null;
+        tr.notBackSince ??= t;
+        if (tr.back && t - tr.notBackSince > TUNING.backRelease) tr.back = false;
       }
 
       // Pinch: thumb and index together while the middle finger stays out.
       if (!tr.pinch && !tr.fist && info.pinchD < TUNING.pinchOn && info.thumbMeetsTip && info.middleStraight) {
         tr.pinch = true;
-        const sp = screenHand(info);
-        emit("pinch", { x: clamp01((sp[4].x + sp[8].x) / 2), y: clamp01((sp[4].y + sp[8].y) / 2) });
       } else if (tr.pinch && info.pinchD > TUNING.pinchOff) {
         tr.pinch = false;
+        tr.pinchFired = false;
+      }
+      // A pinch only counts when nothing else is going on; a pinch held through a busy
+      // moment counts once things are free.
+      if (tr.pinch && !tr.pinchFired && free(t) && !pendingThrow) {
+        tr.pinchFired = true;
+        quietUntil = t + TUNING.afterQuick;
+        const sp = screenHand(info);
+        emit("pinch", { x: clamp01((sp[4].x + sp[8].x) / 2), y: clamp01((sp[4].y + sp[8].y) / 2) });
       }
 
       // Fist: at least three fingers curled. Moving it drags the view.
       const wasFist = tr.fist;
       if (!tr.fist && info.curled >= 3) tr.fist = true;
       else if (tr.fist && info.straight >= 3) tr.fist = false;
-      if (tr.fist && wasFist && tr.lastPalm) {
+      if (active === "drag" && tr === dragHand && tr.fist && wasFist && tr.lastPalm) {
         const a = toScreen(tr.lastPalm);
         const b = toScreen(info.palm);
         onEvent("drag", { dx: b.x - a.x, dy: b.y - a.y });
@@ -304,12 +362,15 @@ export function createGestures({ video, onEvent, onStatus, view }) {
     state.bodySeen = !!bodyFresh;
 
     // Sun: hold an O over your head.
+    // The O wins over everything: forming it stops rain or a drag.
     if (bodyFresh && checkO()) {
+      if (active === "rain" || active === "drag") endActive(t, 0);
+      pendingThrow = null;
       oTime += dt;
       oMissing = 0;
-      if (!state.sun && oTime > TUNING.oHold) {
+      if (!state.sun && oTime > TUNING.oHold && active === null && t >= quietUntil) {
         state.sun = true;
-        pendingThrow = null;
+        active = "sun";
         emit("sun", { on: true });
       }
     } else {
@@ -319,25 +380,16 @@ export function createGestures({ video, onEvent, onStatus, view }) {
         if (oMissing > TUNING.oRelease) {
           state.sun = false;
           sunEndedAt = t;
+          endActive(t, TUNING.afterHeld);
           onEvent("sun", { on: false });
         }
       }
     }
     state.oProgress = state.sun ? 1 : Math.min(1, oTime / TUNING.oHold);
 
-    // Arms for the ghost.
-    if (bodyFresh) {
-      const pick = (n) => { const p = bodyPoint(n); return p ? toScreen(p) : null; };
-      state.arms = { nose: pick("nose"), ls: pick("left_shoulder"), rs: pick("right_shoulder"), le: pick("left_elbow"), re: pick("right_elbow"), lw: pick("left_wrist"), rw: pick("right_wrist") };
-    } else {
-      state.arms = null;
-    }
-
     // Hands: smooth the points toward the latest sample and fade lost hands.
     tracked = tracked.filter((tr) => t - tr.t < TUNING.handTimeout);
-    let maxFlutter = 0;
-    let anyFist = false;
-    let anyPinch = false;
+    let anyBack = false;
     const k = Math.min(1, dt * 16);
     state.hands = tracked.map((tr) => {
       const target = screenHand(tr.info);
@@ -346,19 +398,37 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       const fresh = t - tr.t < 0.2;
       tr.alpha += ((fresh ? 1 : 0) - tr.alpha) * Math.min(1, dt * 8);
       if (fresh) {
-        maxFlutter = Math.max(maxFlutter, tr.flutter);
-        anyFist ||= tr.fist;
-        anyPinch ||= tr.pinch;
+        anyBack ||= tr.back;
       }
-      const sizePx = Math.hypot(tr.smooth[0].x - tr.smooth[9].x, (tr.smooth[0].y - tr.smooth[9].y) * (view().h / view().w));
-      return { pts: tr.smooth, pinch: tr.pinch, fist: tr.fist, open: tr.info.straight >= 3, drizzle: drizzleOn && tr.flutter > TUNING.drizzleOff, alpha: tr.alpha, size: sizePx, flutter: tr.flutter };
+      return { pts: tr.smooth, pinch: tr.pinch, fist: tr.fist, open: tr.info.straight >= 3, back: tr.back, facing: tr.info.facing, alpha: tr.alpha };
     });
     state.handsSeen = tracked.filter((tr) => t - tr.t < 0.2).length;
 
-    state.flutter += (maxFlutter - state.flutter) * Math.min(1, dt * 6);
-    if (!drizzleOn && state.flutter > TUNING.drizzleOn) drizzleOn = true;
-    else if (drizzleOn && state.flutter < TUNING.drizzleOff) drizzleOn = false;
-    state.rain += ((drizzleOn ? 1 : 0) - state.rain) * Math.min(1, dt * 2.5);
+    // Rain and fist drag: start only when free, and end when the hand lets go.
+    const fresh = (tr) => t - tr.t < 0.25;
+    if (active === "rain" && !tracked.some((tr) => fresh(tr) && tr.back)) endActive(t, TUNING.afterHeld);
+    if (active === "drag" && !(dragHand && fresh(dragHand) && dragHand.fist && tracked.includes(dragHand))) endActive(t, TUNING.afterHeld);
+    if (free(t) && !pendingThrow) {
+      const fistHand = tracked.find((tr) => fresh(tr) && tr.fist);
+      if (fistHand) {
+        active = "drag";
+        dragHand = fistHand;
+        dragHand.lastPalm = null;
+      } else if (anyBack) {
+        active = "rain";
+      }
+    }
+    // What each ghost hand shows is only the gesture that's actually running.
+    for (let i = 0; i < state.hands.length; i++) {
+      const tr = tracked[i];
+      const h = state.hands[i];
+      h.fist = active === "drag" && tr === dragHand;
+      h.back = active === "rain" && tr.back;
+      h.pinch = !!tr.pinchFired;
+    }
+    state.active = active;
+    state.backShown = active === "rain";
+    state.rain += ((active === "rain" ? 1 : 0) - state.rain) * Math.min(1, dt * 2.5);
 
     // The cursor sits between the thumb and index finger of the first hand.
     const first = tracked.find((tr) => t - tr.t < 0.3);
@@ -371,16 +441,15 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       state.cursor.x += (clamp01(p.x) - state.cursor.x) * kc;
       state.cursor.y += (clamp01(p.y) - state.cursor.y) * kc;
       state.cursor.visible = true;
-      state.cursor.pinch = first.pinch;
-      state.cursor.fist = first.fist;
+      state.cursor.pinch = !!first.pinchFired;
+      state.cursor.fist = active === "drag" && first === dragHand;
     } else {
       state.cursor.visible = false;
     }
 
     if (state.sun) state.label = "O: the sun is out";
-    else if (drizzleOn) state.label = "Drizzle: rain";
-    else if (anyFist) state.label = "Fist: dragging";
-    else if (anyPinch) state.label = "Pinch";
+    else if (active === "rain") state.label = "Back of the hand: rain";
+    else if (active === "drag") state.label = "Fist: dragging";
     else if (t < flash.until) state.label = flash.text[0].toUpperCase() + flash.text.slice(1);
     else if (oTime > 0) state.label = "Hold the O…";
     else if (bodyFresh || state.handsSeen) state.label = `Watching${state.handsSeen ? ` · ${state.handsSeen} hand${state.handsSeen > 1 ? "s" : ""}` : ""}`;
