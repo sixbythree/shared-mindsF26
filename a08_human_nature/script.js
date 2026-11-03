@@ -228,6 +228,7 @@ function pinch(sx, sy) {
 }
 
 function onGesture(type, data) {
+  if (paused) return;
   if (type === "sun") return;
   if (type === "throw") throwSeeds(data.x * W, data.from * W);
   else if (type === "chop") chop();
@@ -248,7 +249,28 @@ function onGesture(type, data) {
 const clampCam = (x) => Math.max(0.55, Math.min(WORLD - 0.55, x));
 
 // Keyboard and mouse stand in for the body when there's no camera.
+// ---------- pause ----------
+
+let paused = false;
+
+function setPaused(on) {
+  if (on === paused || !$("intro").hidden) return;
+  paused = on;
+  $("pause").hidden = !on;
+  document.body.dataset.paused = String(on);
+  input.sunKey = false;
+  input.rainKey = false;
+  if (!on) last = performance.now();
+  else save();
+}
+
+$("resume").addEventListener("click", () => setPaused(false));
+
 window.addEventListener("keydown", (e) => {
+  // Leave browser shortcuts alone (Cmd+Shift+R, Cmd+C, Ctrl+R…).
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "Escape") { setPaused(!paused); e.preventDefault(); return; }
+  if (paused) return;
   if (e.target.closest && e.target.closest("button, input")) return;
   const k = e.key.toLowerCase();
   if (k === "o") input.sunKey = true;
@@ -605,6 +627,11 @@ let statsTimer = 0;
 let saveTimer = 0;
 
 function frame(nowMs) {
+  if (paused) {
+    // Frozen: the last picture stays on screen and nothing grows or dries.
+    requestAnimationFrame(frame);
+    return;
+  }
   const dt = Math.min(0.1, (nowMs - last) / 1000);
   last = nowMs;
   env.time += dt;

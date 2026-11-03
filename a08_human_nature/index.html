@@ -66,6 +66,17 @@
     <p id="info-hint" class="info-hint"></p>
   </div>
 
+  <section id="pause" class="overlay" aria-labelledby="pause-title" hidden>
+    <div class="panel pause-panel">
+      <h2 id="pause-title">Paused</h2>
+      <p>The field is waiting. Nothing grows or dries while you're away.</p>
+      <div class="actions">
+        <button id="resume" type="button">Keep going</button>
+      </div>
+      <p class="fine">Press <kbd>Esc</kbd> to pause or keep going.</p>
+    </div>
+  </section>
+
   <section id="intro" class="overlay" aria-labelledby="intro-title">
     <div class="panel">
       <h1 id="intro-title">Human Nature</h1>
@@ -82,7 +93,7 @@
         <button id="start-camera" type="button">Start the camera</button>
         <button id="start-keys" class="secondary" type="button">Use the keyboard</button>
       </div>
-      <p class="fine keys-hint">Keyboard: hold <kbd>O</kbd> for sun, <kbd>R</kbd> for rain, <kbd>S</kbd> throws seeds where the mouse is, click a plant to select it and <kbd>C</kbd> cuts it, drag to look around.</p>
+      <p class="fine keys-hint"><kbd>Esc</kbd> pauses. Keyboard: hold <kbd>O</kbd> for sun, <kbd>R</kbd> for rain, <kbd>S</kbd> throws seeds where the mouse is, click a plant to select it and <kbd>C</kbd> cuts it, drag to look around.</p>
     </div>
   </section>
 </body>
