@@ -215,6 +215,38 @@ kbd {
   z-index: 3;
 }
 
+.camera[data-mirror="true"] {
+  width: 300px;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.mirror {
+  display: none;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #1f2a1c;
+}
+
+.camera[data-mirror="true"] .mirror {
+  display: block;
+}
+
+.mirror-toggle {
+  margin-left: auto;
+  padding: 0.3rem 0.75rem;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.mirror-toggle[aria-pressed="true"] {
+  background: var(--text);
+  color: #fdfcf6;
+}
+
 /* The video only feeds the models; your ghost hands are drawn on the field instead. */
 .camera-video {
   position: fixed;
@@ -498,6 +530,9 @@ body[data-mode="camera"] .guide-list kbd {
   }
   .camera {
     min-width: 10rem;
+  }
+  .camera[data-mirror="true"] {
+    width: 200px;
   }
   .panel {
     padding: 1.5rem 1.3rem;

@@ -38,9 +38,11 @@
   <p id="toast" class="toast" aria-live="polite"></p>
 
   <video id="video" class="camera-video" playsinline muted aria-hidden="true"></video>
-  <aside id="camera" class="camera" hidden>
+  <aside id="camera" class="camera" data-mirror="false" hidden>
+    <canvas id="mirror" class="mirror" width="320" height="240" aria-label="You, mirrored, from the webcam"></canvas>
     <div class="camera-foot">
       <span id="gesture-label" class="gesture-label">Starting…</span>
+      <button id="mirror-toggle" class="mirror-toggle" type="button" aria-pressed="false" title="Show yourself in the corner (M)">Show me</button>
     </div>
   </aside>
 
@@ -93,7 +95,7 @@
         <button id="start-camera" type="button">Start the camera</button>
         <button id="start-keys" class="secondary" type="button">Use the keyboard</button>
       </div>
-      <p class="fine keys-hint"><kbd>Esc</kbd> pauses. Keyboard: hold <kbd>O</kbd> for sun, <kbd>R</kbd> for rain, <kbd>S</kbd> throws seeds where the mouse is, click a plant to select it and <kbd>C</kbd> cuts it, drag to look around.</p>
+      <p class="fine keys-hint"><kbd>Esc</kbd> pauses. <kbd>M</kbd> shows you in the corner for recording. Keyboard: hold <kbd>O</kbd> for sun, <kbd>R</kbd> for rain, <kbd>S</kbd> throws seeds where the mouse is, click a plant to select it and <kbd>C</kbd> cuts it, drag to look around.</p>
     </div>
   </section>
 </body>

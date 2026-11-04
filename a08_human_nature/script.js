@@ -249,6 +249,35 @@ function onGesture(type, data) {
 const clampCam = (x) => Math.max(0.55, Math.min(WORLD - 0.55, x));
 
 // Keyboard and mouse stand in for the body when there's no camera.
+// ---------- mirror ----------
+// Optional: you, mirrored, in the corner, for recording the game being played.
+
+const MIRROR_KEY = "human-nature-mirror";
+let mirrorOn = localStorage.getItem(MIRROR_KEY) === "true";
+
+function setMirror(on) {
+  mirrorOn = on;
+  try { localStorage.setItem(MIRROR_KEY, String(on)); } catch { /* blocked */ }
+  $("camera").dataset.mirror = String(on);
+  $("mirror-toggle").setAttribute("aria-pressed", String(on));
+  $("mirror-toggle").textContent = on ? "Hide me" : "Show me";
+}
+setMirror(mirrorOn);
+$("mirror-toggle").addEventListener("click", () => setMirror(!mirrorOn));
+
+function drawMirror() {
+  if (!mirrorOn || !gestures) return;
+  const video = $("video");
+  if (video.readyState < 2) return;
+  const c = $("mirror");
+  const m = c.getContext("2d");
+  m.save();
+  m.translate(c.width, 0);
+  m.scale(-1, 1);
+  m.drawImage(video, 0, 0, c.width, c.height);
+  m.restore();
+}
+
 // ---------- pause ----------
 
 let paused = false;
@@ -270,6 +299,7 @@ window.addEventListener("keydown", (e) => {
   // Leave browser shortcuts alone (Cmd+Shift+R, Cmd+C, Ctrl+R…).
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === "Escape") { setPaused(!paused); e.preventDefault(); return; }
+  if (e.key.toLowerCase() === "m" && !e.repeat && gestures) { setMirror(!mirrorOn); e.preventDefault(); return; }
   if (paused) return;
   if (e.target.closest && e.target.closest("button, input")) return;
   const k = e.key.toLowerCase();
@@ -627,6 +657,7 @@ let statsTimer = 0;
 let saveTimer = 0;
 
 function frame(nowMs) {
+  drawMirror();
   if (paused) {
     // Frozen: the last picture stays on screen and nothing grows or dries.
     requestAnimationFrame(frame);
