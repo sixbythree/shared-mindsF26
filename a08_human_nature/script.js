@@ -177,9 +177,33 @@ function throwSeeds(screenX, fromX = screenX) {
   for (let i = 0; i < n; i++) {
     const z = 0.2 + Math.random() * 0.75;
     const x = Math.max(0.05, Math.min(WORLD - 0.05, unproject(screenX, z) + (Math.random() - 0.5) * 0.25));
-    field.seeds.push({ x, z, t: 0, dur: 0.7 + Math.random() * 0.4, fromX: fromX + (Math.random() - 0.5) * 40, species: CROPS[Math.floor(Math.random() * CROPS.length)] });
+    field.seeds.push({ x, z, t: 0, dur: 0.7 + Math.random() * 0.4, fromX: fromX + (Math.random() - 0.5) * 40, fromY: H, arc: 0.35, species: CROPS[Math.floor(Math.random() * CROPS.length)] });
   }
   toast(`You threw ${n} seeds.`);
+}
+
+// Depth in the field for a point on screen (the inverse of project's y).
+function depthAt(sy) {
+  const hy = horizon();
+  const k = (sy - hy) / (H * 1.02 - hy);
+  return Math.max(0.12, Math.min(0.98, Math.pow(Math.max(0, (k - 0.03) / 0.97), 1 / 1.25)));
+}
+
+// Shaking an OK sign: one seed at a time falls from between your fingers to the ground
+// a little below your hand.
+let fullWarned = 0;
+function sowAt(sx, sy) {
+  const living = field.plants.filter((p) => !p.cut).length;
+  if (living + field.seeds.length >= MAX_PLANTS) {
+    if (performance.now() - fullWarned > 4000) { fullWarned = performance.now(); toast("The field is full. Cut something down first."); }
+    return;
+  }
+  const landY = Math.max(horizon() + 6, sy + H * 0.12);
+  const z = Math.max(0.12, Math.min(0.98, depthAt(landY) + (Math.random() - 0.5) * 0.08));
+  const x = Math.max(0.05, Math.min(WORLD - 0.05, unproject(sx, z) + (Math.random() - 0.5) * 0.1));
+  // Don't drop a seed right on top of another plant.
+  if (field.plants.some((p) => !p.cut && Math.abs(p.x - x) < 0.035 && Math.abs(p.z - z) < 0.05)) return;
+  field.seeds.push({ x, z, t: 0, dur: 0.45 + Math.random() * 0.2, fromX: sx + (Math.random() - 0.5) * 10, fromY: sy, arc: 0, species: CROPS[Math.floor(Math.random() * CROPS.length)] });
 }
 
 // A chop only cuts the plant you selected by pinching it.
@@ -230,7 +254,7 @@ function pinch(sx, sy) {
 function onGesture(type, data) {
   if (paused) return;
   if (type === "sun") return;
-  if (type === "throw") throwSeeds(data.x * W, data.from * W);
+  if (type === "sow") sowAt(data.x * W, data.y * H);
   else if (type === "chop") chop();
   else if (type === "pinch") pinch(data.x * W, data.y * H);
   else if (type === "drag") {
@@ -464,9 +488,13 @@ function drawSeeds() {
     const k = Math.min(1, s.t / s.dur);
     const end = project(s.x, s.z);
     const x = s.fromX + (end.x - s.fromX) * k;
-    const y = H + (end.y - H) * k - Math.sin(k * Math.PI) * H * 0.35;
+    const from = s.fromY ?? H;
+    // Thrown seeds fly in an arc; sown seeds just fall, speeding up.
+    const kk = s.arc ? k : k * k;
+    const x2 = s.arc ? x : s.fromX + (end.x - s.fromX) * kk;
+    const y = from + (end.y - from) * kk - Math.sin(k * Math.PI) * H * (s.arc ?? 0.35);
     ctx.beginPath();
-    ctx.ellipse(x, y, 4 + 3 * (1 - k), 3 + 2 * (1 - k), k * 6, 0, Math.PI * 2);
+    ctx.ellipse(x2, y, 4 + 3 * (1 - k), 3 + 2 * (1 - k), k * 6, 0, Math.PI * 2);
     ctx.fillStyle = "#6b4a2e";
     ctx.fill();
   }
@@ -490,7 +518,8 @@ function drawEffects(dt) {
 // ---------- ghost hands ----------
 // Your hands, floating over the field as soft white shapes with dotted joints.
 // They take on each gesture: warm when you make a fist, a glow at the fingertips when you
-// pinch, blue with falling drops when you show the back of your hand, gold as you hold the O.
+// pinch, blue with falling drops when you show the back of your hand, wheat when you sow,
+// gold as you hold the O.
 
 const ghostCanvas = document.createElement("canvas");
 const gctx = ghostCanvas.getContext("2d");
@@ -522,7 +551,7 @@ function drawGhostHand(hand, dt, oProgress) {
   const pts = hand.pts.map((p) => ({ x: p.x * W, y: p.y * H }));
   const size = Math.max(16, Math.hypot(pts[0].x - pts[9].x, pts[0].y - pts[9].y));
   const bone = size * 0.3;
-  const fill = oProgress > 0 ? mix("#ffffff", "#ffd75e", oProgress) : hand.fist ? "#ffe3a8" : hand.back ? "#cfe5ff" : "#ffffff";
+  const fill = oProgress > 0 ? mix("#ffffff", "#ffd75e", oProgress) : hand.fist ? "#ffe3a8" : hand.back ? "#cfe5ff" : hand.sow ? "#e9d8b8" : "#ffffff";
 
   ghostLayer();
   for (const pass of [0, 1]) {
@@ -584,7 +613,7 @@ function drawGhostHand(hand, dt, oProgress) {
   }
 
   // The gesture's name under the wrist.
-  const name = hand.fist ? "fist" : hand.pinch ? "pinch" : hand.back ? "rain" : "";
+  const name = hand.fist ? "fist" : hand.sow ? "sowing" : hand.pinch ? "pinch" : hand.back ? "rain" : "";
   if (name) {
     ctx.globalAlpha = hand.alpha;
     ctx.font = `700 ${Math.round(Math.max(18, size * 0.32))}px Caveat, cursive`;
