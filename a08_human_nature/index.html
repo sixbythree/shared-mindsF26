@@ -9,6 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" defer></script>
+  <script src="firebase-config.js" defer></script>
   <script type="module" src="script.js"></script>
 </head>
 <body data-mode="intro">
@@ -16,8 +20,20 @@
 
   <header class="hud">
     <a class="back-link" href="https://www.six-hq.com/itp/semester-3/shared-minds/08-body">&larr; Back to the post</a>
+    <button id="farms-open" class="hud-card hud-button" type="button" title="Your farms">
+      <span class="hud-label">Farm</span>
+      <strong id="farm-name" class="hud-value">The Meadow</strong>
+    </button>
+    <button id="market-open" class="hud-card hud-button" type="button" title="Market">
+      <span class="hud-label">Coins</span>
+      <strong id="stat-coins" class="hud-value">0</strong>
+    </button>
+    <button id="basket-open" class="hud-card hud-button" type="button" title="Your fruit (sell it at the market)">
+      <span class="hud-label">Basket</span>
+      <strong id="stat-basket" class="hud-value">0</strong>
+    </button>
     <div class="hud-card">
-      <span class="hud-label">Bearing fruit</span>
+      <span class="hud-label">Ripe</span>
       <strong id="stat-fruit" class="hud-value">0</strong>
     </div>
     <div class="hud-card">
@@ -32,8 +48,48 @@
       <span class="hud-label">Water</span>
       <span class="water-bar"><span id="water-fill" class="water-fill"></span></span>
     </div>
+    <button id="account" class="ghost" type="button" data-signed-in="false">Sign in to save</button>
+    <span id="sync" class="sync">Saved on this browser</span>
     <button id="new-field" class="ghost" type="button">New field</button>
   </header>
+
+  <button id="seed-chip" class="seed-chip" type="button" title="Choose a seed: click, press 1–7, or point one finger up">
+    <span id="seed-swatch" class="seed-swatch"></span>
+    <span class="seed-chip-label">Sowing</span>
+    <strong id="seed-name">Tomato</strong>
+    <span id="seed-count" class="seed-chip-count">×3</span>
+  </button>
+
+  <section id="seed-picker" class="seed-picker" hidden aria-label="Choose a seed">
+    <p class="seed-picker-title">Choose a seed
+      <span class="seed-picker-hint gesture-only">Move your pointing hand left or right, then drop it to choose</span>
+      <span class="seed-picker-hint mouse-only">Click one, or press 1–7</span>
+    </p>
+    <div id="seed-cards" class="seed-cards"></div>
+  </section>
+
+  <section id="market" class="overlay" aria-labelledby="market-title" hidden>
+    <div class="panel market-panel">
+      <button class="panel-close" type="button" data-close aria-label="Close">&times;</button>
+      <h2 id="market-title">Market</h2>
+      <p class="fine">Sell the fruit you've picked. Save up coins to buy new farms.</p>
+      <p class="coins-line">Coins <strong id="market-coins">0</strong></p>
+      <div id="market-rows" class="market-rows"></div>
+      <div class="actions">
+        <button id="sell-all" type="button">Sell everything</button>
+        <button id="to-farms" class="secondary" type="button">See farms</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="farms" class="overlay" aria-labelledby="farms-title" hidden>
+    <div class="panel farms-panel">
+      <button class="panel-close" type="button" data-close aria-label="Close">&times;</button>
+      <h2 id="farms-title">Farms</h2>
+      <p class="fine">Each farm has its own field, its own view and its own weather. Coins <strong id="farms-coins">0</strong></p>
+      <div id="farm-list" class="farm-list"></div>
+    </div>
+  </section>
 
   <p id="toast" class="toast" aria-live="polite"></p>
 
@@ -54,7 +110,8 @@
       <li><strong>Seeds</strong> Shake an OK sign over the field: seeds fall from your fingers <kbd>S</kbd></li>
       <li><strong>Cut</strong> Pinch a plant, then karate chop: swing one flat hand down fast <kbd>C</kbd></li>
       <li><strong>Look</strong> Close your fist and pull <kbd>drag</kbd></li>
-      <li><strong>Name</strong> Hold an OK sign (a pinch) still on a plant to select it; again to close <kbd>click</kbd></li>
+      <li><strong>Name / pick</strong> Hold an OK sign (a pinch) still on a plant to select it and pick ripe fruit; again to close <kbd>click</kbd></li>
+      <li><strong>Choose seeds</strong> Point one finger up, move left or right, then drop it <kbd>1–7</kbd></li>
     </ul>
   </section>
 
@@ -88,14 +145,19 @@
         <li><span>Show the <strong>backs of your hands</strong></span> and it rains. Without rain the field dries out.</li>
         <li><span>Shake an <strong>OK sign</strong></span> and seeds fall from your fingers onto the field below. <span><strong>Pinch</strong></span> a weed or a plant that grew up without fruit to select it, then <span><strong>karate chop</strong></span> to cut it down.</li>
         <li><span>Close your <strong>fist</strong> and pull</span> to look around. Hold the OK sign still on a plant (a pinch) to learn what it is; pinch again to close the card.</li>
+        <li><span><strong>Pinch a ripe plant</strong></span> to pick its fruit and get seeds back. <span>Point one finger up</span> to choose which seed you sow.</li>
       </ul>
-      <p>Grow your plants until they bear fruit.</p>
+      <p>Sell your fruit at the market and save up for new farms with new views.</p>
+      <p class="signin-row">
+        <button id="intro-signin" class="secondary" type="button">Sign in with Google to save your farm</button>
+        <span id="intro-signed-in" class="fine" hidden></span>
+      </p>
       <p class="fine">Stand back so the camera sees you from the waist up. Video stays on your computer.</p>
       <div class="actions">
         <button id="start-camera" type="button">Start the camera</button>
         <button id="start-keys" class="secondary" type="button">Use the keyboard</button>
       </div>
-      <p class="fine keys-hint"><kbd>Esc</kbd> pauses. <kbd>M</kbd> shows you in the corner for recording. Keyboard: hold <kbd>O</kbd> for sun, <kbd>R</kbd> for rain, <kbd>S</kbd> throws seeds where the mouse is, click a plant to select it and <kbd>C</kbd> cuts it, drag to look around.</p>
+      <p class="fine keys-hint"><kbd>Esc</kbd> pauses. <kbd>M</kbd> shows you in the corner for recording. Keyboard: hold <kbd>O</kbd> for sun, <kbd>R</kbd> for rain, <kbd>S</kbd> throws seeds where the mouse is, click a plant to select it (and pick it when it's ripe), <kbd>C</kbd> cuts it, <kbd>1</kbd>–<kbd>7</kbd> choose a seed, drag to look around.</p>
     </div>
   </section>
 </body>

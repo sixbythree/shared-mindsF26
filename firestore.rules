@@ -307,6 +307,23 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
     }
 
+    // Human Nature (A08): one saved farm per Google account, readable and writable only by
+    // its owner. The whole profile is one JSON string (data), capped well under the 1 MB limit.
+    match /humanNatureFarms/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['data', 'name', 'updatedAt'])
+        && request.resource.data.keys().hasAll(['data', 'name', 'updatedAt'])
+        && request.resource.data.data is string
+        && request.resource.data.data.size() > 2
+        && request.resource.data.data.size() <= 600000
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

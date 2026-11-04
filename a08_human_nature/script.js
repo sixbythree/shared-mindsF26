@@ -1,5 +1,7 @@
-import { SPECIES, CROPS, WEEDS, RULES, createPlant, syncNextId, stepPlant, drawPlant, describe, isBad, isRipe, mix, rgba } from "./plants.js";
+import { SPECIES, CROPS, WEEDS, RULES, createPlant, syncNextId, stepPlant, drawPlant, describe, isBad, isRipe, harvest, mix, rgba } from "./plants.js";
 import { createGestures, HAND_BONES, PALM } from "./gestures.js";
+import { PRICES, FRUIT_NAMES, LOCATIONS, locationById, newProfile, packPlants, unpackPlants, loadLocal, saveLocal, cloud, loadCloud, saveCloud } from "./farm.js";
+import { sceneFor } from "./scenery.js";
 
 const canvas = document.getElementById("field");
 const ctx = canvas.getContext("2d");
@@ -8,7 +10,6 @@ const $ = (id) => document.getElementById(id);
 const WORLD = 3;          // the field is three screens wide
 const MAX_PLANTS = 70;
 const MAX_WEEDS = 14;
-const SAVE_KEY = "human-nature-field-v1";
 // ?speed=4 makes time in the field pass faster (for testing and demos).
 const SPEED = Math.min(20, Math.max(0.1, Number(new URLSearchParams(location.search).get("speed")) || 1));
 
@@ -70,28 +71,72 @@ function newField() {
   }
 }
 
-function save() {
-  try {
-    const plants = field.plants.filter((p) => !p.cut);
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ plants, camX: field.camX, milestone: field.milestone }));
-  } catch { /* storage full or blocked */ }
-}
-
-function load() {
-  try {
-    const data = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (!data || !Array.isArray(data.plants) || !data.plants.length) return false;
-    field.plants = data.plants.filter((p) => SPECIES[p.species]);
-    field.camX = data.camX ?? WORLD / 2;
-    field.milestone = !!data.milestone;
-    syncNextId(field.plants);
-    return field.plants.length > 0;
-  } catch {
-    return false;
+// New farm locations start as bare ground with a few young weeds.
+function newLandField() {
+  field.plants = [];
+  field.seeds = [];
+  field.camX = WORLD / 2;
+  field.milestone = false;
+  for (let i = 0; i < 3; i++) {
+    const { x, z } = spot(0.1);
+    field.plants.push(createPlant(WEEDS[i % WEEDS.length], x, z, 0.1 + Math.random() * 0.3));
   }
 }
 
-if (!load()) newField();
+// ---------- the farm you own ----------
+// Coins, seeds, fruit and farm locations live in `profile`; the field on screen is the
+// current location's. Guests save in the browser; signed in, it's also saved to your account.
+
+let profile = loadLocal() || newProfile();
+let loc = locationById(profile.current);
+let user = null;
+let cloudDirty = false;
+let cloudTimer = 0;
+
+function openFarm(id) {
+  loc = locationById(id);
+  profile.current = loc.id;
+  const saved = profile.farms[loc.id];
+  if (saved && Array.isArray(saved.plants)) {
+    field.plants = unpackPlants(saved.plants);
+    field.seeds = [];
+    field.camX = saved.camX ?? WORLD / 2;
+    field.milestone = !!saved.milestone;
+    syncNextId(field.plants);
+  } else if (loc.id === "meadow" && !profile.farms.meadow) {
+    newField();
+  } else {
+    newLandField();
+  }
+  field.camTarget = null;
+  field.camV = 0;
+}
+
+function storeFarm() {
+  profile.farms[loc.id] = { plants: packPlants(field.plants), camX: Math.round(field.camX * 1000) / 1000, milestone: field.milestone };
+}
+
+function save() {
+  storeFarm();
+  saveLocal(profile);
+  cloudDirty = true;
+}
+
+async function flushCloud() {
+  if (!user || !cloudDirty) return;
+  cloudDirty = false;
+  setSync("Saving…");
+  try {
+    await saveCloud(user, profile);
+    setSync("Saved");
+  } catch (err) {
+    console.error(err);
+    cloudDirty = true;
+    setSync("Not saved");
+  }
+}
+
+openFarm(profile.current);
 
 // ---------- projection ----------
 
@@ -169,17 +214,38 @@ function toast(text, tone = "") {
   el.classList.add("show");
 }
 
+// One seed from the bag, of the kind you chose. Null (with a hint) when you're out.
+let outWarned = 0;
+function takeSeed() {
+  const kind = profile.selectedSeed;
+  if (profile.seeds[kind] > 0) {
+    profile.seeds[kind] -= 1;
+    renderInventory();
+    return kind;
+  }
+  if (performance.now() - outWarned > 4000) {
+    outWarned = performance.now();
+    const name = SPECIES[kind].name.toLowerCase();
+    toast(`Out of ${name} seeds. Pinch ripe ${FRUIT_NAMES[kind][1]} to pick them and get seeds back, or choose another seed.`, "bad");
+  }
+  return null;
+}
+
 function throwSeeds(screenX, fromX = screenX) {
   const living = field.plants.filter((p) => !p.cut).length;
   const room = Math.max(0, MAX_PLANTS - living - field.seeds.length);
   if (!room) { toast("The field is full. Cut something down first."); return; }
-  const n = Math.min(room, 3 + Math.floor(Math.random() * 3));
-  for (let i = 0; i < n; i++) {
+  const want = Math.min(room, 3 + Math.floor(Math.random() * 3));
+  let n = 0;
+  for (let i = 0; i < want; i++) {
+    const kind = takeSeed();
+    if (!kind) break;
     const z = 0.2 + Math.random() * 0.75;
     const x = Math.max(0.05, Math.min(WORLD - 0.05, unproject(screenX, z) + (Math.random() - 0.5) * 0.25));
-    field.seeds.push({ x, z, t: 0, dur: 0.7 + Math.random() * 0.4, fromX: fromX + (Math.random() - 0.5) * 40, fromY: H, arc: 0.35, species: CROPS[Math.floor(Math.random() * CROPS.length)] });
+    field.seeds.push({ x, z, t: 0, dur: 0.7 + Math.random() * 0.4, fromX: fromX + (Math.random() - 0.5) * 40, fromY: H, arc: 0.35, species: kind });
+    n++;
   }
-  toast(`You threw ${n} seeds.`);
+  if (n) toast(`You threw ${n} ${SPECIES[profile.selectedSeed].name.toLowerCase()} seeds.`);
 }
 
 // Depth in the field for a point on screen (the inverse of project's y).
@@ -203,7 +269,9 @@ function sowAt(sx, sy) {
   const x = Math.max(0.05, Math.min(WORLD - 0.05, unproject(sx, z) + (Math.random() - 0.5) * 0.1));
   // Don't drop a seed right on top of another plant.
   if (field.plants.some((p) => !p.cut && Math.abs(p.x - x) < 0.035 && Math.abs(p.z - z) < 0.05)) return;
-  field.seeds.push({ x, z, t: 0, dur: 0.45 + Math.random() * 0.2, fromX: sx + (Math.random() - 0.5) * 10, fromY: sy, arc: 0, species: CROPS[Math.floor(Math.random() * CROPS.length)] });
+  const kind = takeSeed();
+  if (!kind) return;
+  field.seeds.push({ x, z, t: 0, dur: 0.45 + Math.random() * 0.2, fromX: sx + (Math.random() - 0.5) * 10, fromY: sy, arc: 0, species: kind });
 }
 
 // A chop only cuts the plant you selected by pinching it.
@@ -217,6 +285,7 @@ function chop() {
   if (p.dead) toast(`You cleared a dead ${sp.name.toLowerCase()}.`, "good");
   else if (sp.kind === "weed") toast(`You cut down ${a(sp.name.toLowerCase())}. Good.`, "good");
   else if (p.barren) toast(`You cut down ${a(sp.name.toLowerCase())} that never fruited. Good.`, "good");
+  else if (p.spent) toast(`You cleared ${a(sp.name.toLowerCase())} that had given all its fruit. Good.`, "good");
   else toast(`You cut down a healthy ${sp.name.toLowerCase()}.`, "bad");
 }
 
@@ -242,19 +311,40 @@ function renderInfo() {
   $("info-kind").textContent = d.kind === "weed" ? "Weed" : d.bad ? "Cut it down" : "Crop";
   const keys = document.body.dataset.mode !== "camera";
   $("info-hint").textContent = keys ? "Press C to cut it down. Click again to close." : "Karate chop to cut it down. Pinch again to close.";
+  if (isRipe(infoPlant)) $("info-hint").textContent = keys ? "Click it again to pick the fruit." : "Pinch it again to pick the fruit.";
 }
 
-// Pinch (or click) a plant to select it and open its card. Pinch again to close it.
+// Pinch (or click) a plant to select it and open its card; a ripe plant is picked as well.
+// Pinch again to close the card.
 function pinch(sx, sy) {
   if (infoPlant) { hideInfo(); return; }
   const p = pickAt(sx, sy);
-  if (p) showInfo(p);
+  if (!p) return;
+  if (isRipe(p)) pick(p);
+  showInfo(p);
+}
+
+function pick(p) {
+  const got = harvest(p);
+  if (!got) return;
+  const sp = SPECIES[p.species];
+  profile.fruit[p.species] += got.count;
+  profile.seeds[p.species] += got.seeds;
+  profile.harvests = (profile.harvests || 0) + 1;
+  const s = plantScreen(p);
+  const names = FRUIT_NAMES[p.species];
+  effects.push({ type: "float", x: s.x, y: s.top, t: 0, life: 1.4, text: `+${got.count} ${got.count === 1 ? names[0] : names[1]}`, color: sp.fruit.ripe });
+  toast(`You picked ${got.count} ${got.count === 1 ? names[0] : names[1]} and got ${got.seeds} ${sp.name.toLowerCase()} seeds back.${got.spent ? " That was its last harvest." : ""}`, "good");
+  renderInventory();
+  save();
 }
 
 function onGesture(type, data) {
   if (paused) return;
   if (type === "sun") return;
   if (type === "sow") sowAt(data.x * W, data.y * H);
+  else if (type === "seedsOpen") openSeedPicker("gesture");
+  else if (type === "seedsDone") closeSeedPicker(!data.cancel);
   else if (type === "chop") chop();
   else if (type === "pinch") pinch(data.x * W, data.y * H);
   else if (type === "drag") {
@@ -322,7 +412,15 @@ $("resume").addEventListener("click", () => setPaused(false));
 window.addEventListener("keydown", (e) => {
   // Leave browser shortcuts alone (Cmd+Shift+R, Cmd+C, Ctrl+R…).
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === "Escape") { setPaused(!paused); e.preventDefault(); return; }
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (seedPicker.open) closeSeedPicker(false);
+    else if (modal) closePanel();
+    else setPaused(!paused);
+    return;
+  }
+  if (modal) return;
+  if (/^[1-7]$/.test(e.key) && !paused) { chooseSeed(CROPS[Number(e.key) - 1]); if (seedPicker.open) closeSeedPicker(false); e.preventDefault(); return; }
   if (e.key.toLowerCase() === "m" && !e.repeat && gestures) { setMirror(!mirrorOn); e.preventDefault(); return; }
   if (paused) return;
   if (e.target.closest && e.target.closest("button, input")) return;
@@ -365,9 +463,12 @@ function drawSky() {
   const hy = horizon();
   const sun = env.sun;
   const rain = env.rain;
+  const scene = sceneFor(loc.id);
+  const sky = scene.sky;
   const g = ctx.createLinearGradient(0, 0, 0, hy);
-  g.addColorStop(0, mix(mix("#b8c2c9", "#7fb6e6", sun), "#7d8790", rain * 0.8));
-  g.addColorStop(1, mix(mix("#e4e3da", "#fbe7b8", sun), "#a9afb0", rain * 0.8));
+  const skyBottom = mix(mix(sky.restBottom, sky.sunBottom, sun), "#a9afb0", rain * 0.8);
+  g.addColorStop(0, mix(mix(sky.restTop, sky.sunTop, sun), "#7d8790", rain * 0.8));
+  g.addColorStop(1, skyBottom);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, hy + 2);
 
@@ -414,30 +515,18 @@ function drawSky() {
     ctx.fill();
   }
 
-  // Far hills.
-  for (let layer = 0; layer < 2; layer++) {
-    const par = 0.1 + layer * 0.12;
-    ctx.beginPath();
-    ctx.moveTo(0, hy + 2);
-    for (let x = 0; x <= W; x += 12) {
-      const wx = x / W + field.camX * par * 2;
-      const y = hy - H * (0.035 + layer * 0.015) * (1 + Math.sin(wx * (5 + layer * 3) + layer) * 0.6 + Math.sin(wx * 13) * 0.15);
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(W, hy + 2);
-    ctx.closePath();
-    ctx.fillStyle = mix(layer ? "#8aa37a" : "#a7b8a2", "#6f7d72", rain * 0.5);
-    ctx.fill();
-  }
+  // The far landscape for this farm.
+  scene.drawBack(ctx, { W, H, hy, camX: field.camX, rain, sun, time: env.time, skyBottom });
 }
 
 function drawGround() {
   const hy = horizon();
   const avgWater = field.plants.length ? field.plants.reduce((s, p) => s + p.water, 0) / field.plants.length : 0.5;
   const dryness = 1 - Math.min(1, avgWater / 0.5);
+  const gr = sceneFor(loc.id).ground;
   const g = ctx.createLinearGradient(0, hy, 0, H);
-  g.addColorStop(0, mix(mix("#a9bd7d", "#c9c07d", dryness), "#7f9468", env.rain * 0.4));
-  g.addColorStop(1, mix(mix("#6b8f45", "#a08f55", dryness), "#56703e", env.rain * 0.4));
+  g.addColorStop(0, mix(mix(gr.far, gr.dryFar, dryness), "#7f9468", env.rain * 0.4));
+  g.addColorStop(1, mix(mix(gr.near, gr.dryNear, dryness), "#56703e", env.rain * 0.4));
   ctx.fillStyle = g;
   ctx.fillRect(0, hy, W, H - hy);
   // Furrows, receding to the horizon.
@@ -459,7 +548,8 @@ function drawGrassBlade(b, dryness) {
   if (s.x < -20 || s.x > W + 20) return;
   const h = s.unit * b.h * 2.2;
   const sway = Math.sin(env.time * 1.6 + b.x * 9) * (0.15 + env.wind * 0.3);
-  ctx.strokeStyle = mix(mix("#4f7a35", "#86a64a", b.tint), "#b5a560", dryness * 0.8);
+  const gc = sceneFor(loc.id).grass;
+  ctx.strokeStyle = mix(mix(gc[0], gc[1], b.tint), "#b5a560", dryness * 0.8);
   ctx.lineWidth = Math.max(0.6, s.scale * 1.6);
   ctx.beginPath();
   ctx.moveTo(s.x, s.y);
@@ -501,8 +591,22 @@ function drawSeeds() {
 }
 
 function drawEffects(dt) {
-  effects = effects.filter((e) => (e.t += dt) < 0.4);
+  effects = effects.filter((e) => (e.t += dt) < (e.life || 0.4));
   for (const e of effects) {
+    if (e.type === "float") {
+      const k = e.t / e.life;
+      ctx.save();
+      ctx.globalAlpha = 1 - k * k;
+      ctx.font = `700 ${Math.round(Math.min(W, H) * 0.035)}px Caveat, cursive`;
+      ctx.textAlign = "center";
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.strokeText(e.text, e.x, e.y - k * 60);
+      ctx.fillStyle = e.color;
+      ctx.fillText(e.text, e.x, e.y - k * 60);
+      ctx.restore();
+      continue;
+    }
     if (e.type === "slash") {
       const k = e.t / 0.4;
       ctx.strokeStyle = `rgba(255,255,255,${0.9 * (1 - k)})`;
@@ -687,7 +791,7 @@ let saveTimer = 0;
 
 function frame(nowMs) {
   drawMirror();
-  if (paused) {
+  if (paused || modal) {
     // Frozen: the last picture stays on screen and nothing grows or dries.
     requestAnimationFrame(frame);
     return;
@@ -702,6 +806,8 @@ function frame(nowMs) {
   env.sun += (sunWanted - env.sun) * Math.min(1, dt * 1.8);
   env.rain += (rainWanted - env.rain) * Math.min(1, dt * 2.2);
   env.wind = 0.3 + env.rain * 0.7;
+  env.dryMul = loc.dry;
+  env.growMul = loc.grow;
 
   // Fist drag: ease toward the target; when the fist opens, keep a little momentum.
   if (field.camTarget !== null) {
@@ -760,6 +866,9 @@ function frame(nowMs) {
   if (statsTimer <= 0) { statsTimer = 0.25; updateStats(); }
   saveTimer -= dt;
   if (saveTimer <= 0) { saveTimer = 5; save(); }
+  cloudTimer -= dt;
+  if (cloudTimer <= 0) { cloudTimer = 15; flushCloud(); }
+  if (seedPicker.open) updateSeedPicker();
   if (infoPlant) {
     if (infoPlant.cut) hideInfo();
     else positionInfo();
@@ -828,6 +937,7 @@ function updateStats() {
   const bad = live.filter(isBad).length;
   const water = live.length ? live.reduce((s, p) => s + p.water, 0) / live.length : 0;
   $("stat-fruit").textContent = ripe;
+  $("stat-coins").textContent = profile.coins;
   $("stat-growing").textContent = growing;
   $("stat-bad").textContent = bad;
   $("water-fill").style.width = `${Math.round(water * 100)}%`;
@@ -852,6 +962,327 @@ function positionInfo() {
   let y = Math.min(H - h - 12, Math.max(12, s.top - 10));
   el.style.transform = `translate(${Math.max(12, x)}px, ${y}px)`;
 }
+
+
+// ---------- seed bag and picker ----------
+// The picker opens with the mouse (the seed button) or by pointing one finger up. While
+// pointing, moving your hand left and right moves the highlight; drop the point to choose.
+
+const seedPicker = { open: false, by: null, index: 0 };
+
+function seedCardsHTML() {
+  return CROPS.map((c, i) => {
+    const sp = SPECIES[c];
+    return `<button type="button" class="seed-card" data-seed="${c}" data-index="${i}">
+      <span class="seed-swatch" style="background:${sp.fruit.ripe}"></span>
+      <span class="seed-card-name">${sp.name}</span>
+      <span class="seed-card-count" data-count="${c}"></span>
+      <kbd>${i + 1}</kbd>
+    </button>`;
+  }).join("");
+}
+$("seed-cards").innerHTML = seedCardsHTML();
+$("seed-cards").addEventListener("click", (e) => {
+  const b = e.target.closest(".seed-card");
+  if (!b) return;
+  chooseSeed(b.dataset.seed);
+  closeSeedPicker(false);
+});
+$("seed-chip").addEventListener("click", () => (seedPicker.open ? closeSeedPicker(false) : openSeedPicker("mouse")));
+
+function chooseSeed(kind) {
+  if (!CROPS.includes(kind)) return;
+  profile.selectedSeed = kind;
+  renderInventory();
+  toast(`Sowing ${SPECIES[kind].name.toLowerCase()} seeds (${profile.seeds[kind]} left).`);
+}
+
+function openSeedPicker(by) {
+  seedPicker.open = true;
+  seedPicker.by = by;
+  seedPicker.index = Math.max(0, CROPS.indexOf(profile.selectedSeed));
+  $("seed-picker").hidden = false;
+  $("seed-picker").dataset.by = by;
+  renderSeedPicker();
+}
+
+// Closing after pointing chooses the highlighted seed.
+function closeSeedPicker(choose) {
+  if (!seedPicker.open) return;
+  if (choose && seedPicker.by === "gesture") chooseSeed(CROPS[seedPicker.index]);
+  seedPicker.open = false;
+  $("seed-picker").hidden = true;
+}
+
+function updateSeedPicker() {
+  if (seedPicker.by !== "gesture" || !gestures || !gestures.state.seedPick) return;
+  // The middle 70% of the screen spans all the seeds, so small moves are enough.
+  const k = Math.max(0, Math.min(0.999, (gestures.state.seedPick.x - 0.15) / 0.7));
+  const i = Math.floor(k * CROPS.length);
+  if (i !== seedPicker.index) { seedPicker.index = i; renderSeedPicker(); }
+}
+
+function renderSeedPicker() {
+  for (const b of $("seed-cards").querySelectorAll(".seed-card")) {
+    const c = b.dataset.seed;
+    b.querySelector(".seed-card-count").textContent = `×${profile.seeds[c]}`;
+    b.dataset.empty = profile.seeds[c] ? "false" : "true";
+    b.dataset.chosen = String(c === profile.selectedSeed);
+    b.dataset.active = String(seedPicker.by === "gesture" && Number(b.dataset.index) === seedPicker.index);
+  }
+}
+
+// ---------- coins, basket, farm name ----------
+
+function renderInventory() {
+  const kind = profile.selectedSeed;
+  $("seed-swatch").style.background = SPECIES[kind].fruit.ripe;
+  $("seed-name").textContent = SPECIES[kind].name;
+  $("seed-count").textContent = `×${profile.seeds[kind]}`;
+  $("seed-chip").dataset.empty = profile.seeds[kind] ? "false" : "true";
+  $("stat-coins").textContent = profile.coins;
+  $("stat-basket").textContent = CROPS.reduce((n, c) => n + profile.fruit[c], 0);
+  $("farm-name").textContent = loc.name;
+  if (seedPicker.open) renderSeedPicker();
+  if (!$("market").hidden) renderMarket();
+  if (!$("farms").hidden) renderFarms();
+}
+
+// ---------- panels: market and farms ----------
+// Panels pause the field while they're open.
+
+let modal = null;
+
+function openPanel(id) {
+  if (!$("intro").hidden) return;
+  closePanel();
+  modal = id;
+  $(id).hidden = false;
+  input.sunKey = false;
+  input.rainKey = false;
+  if (id === "market") renderMarket();
+  if (id === "farms") renderFarms();
+  save();
+}
+
+function closePanel() {
+  if (!modal) return;
+  $(modal).hidden = true;
+  modal = null;
+  last = performance.now();
+}
+
+for (const b of document.querySelectorAll("[data-close]")) b.addEventListener("click", closePanel);
+$("market-open").addEventListener("click", () => openPanel("market"));
+$("basket-open").addEventListener("click", () => openPanel("market"));
+$("farms-open").addEventListener("click", () => openPanel("farms"));
+$("to-farms").addEventListener("click", () => openPanel("farms"));
+
+function renderMarket() {
+  $("market-coins").textContent = profile.coins;
+  $("market-rows").innerHTML = CROPS.map((c) => {
+    const sp = SPECIES[c];
+    const n = profile.fruit[c];
+    const names = FRUIT_NAMES[c];
+    return `<div class="market-row" data-empty="${n ? "false" : "true"}">
+      <span class="seed-swatch" style="background:${sp.fruit.ripe}"></span>
+      <span class="market-name">${cap(names[1])}</span>
+      <span class="market-count">${n}</span>
+      <span class="market-price">${PRICES[c]} each</span>
+      <button type="button" class="small" data-sell="${c}" data-n="1" ${n ? "" : "disabled"}>Sell 1</button>
+      <button type="button" class="small" data-sell="${c}" data-n="all" ${n ? "" : "disabled"}>Sell all · ${n * PRICES[c]}</button>
+    </div>`;
+  }).join("");
+  const total = CROPS.reduce((t, c) => t + profile.fruit[c] * PRICES[c], 0);
+  $("sell-all").textContent = total ? `Sell everything · ${total} coins` : "Nothing to sell yet";
+  $("sell-all").disabled = !total;
+}
+
+function sell(kind, n) {
+  const have = profile.fruit[kind];
+  const k = n === "all" ? have : Math.min(have, n);
+  if (!k) return 0;
+  profile.fruit[kind] -= k;
+  const coins = k * PRICES[kind];
+  profile.coins += coins;
+  profile.sold = (profile.sold || 0) + k;
+  return coins;
+}
+
+$("market-rows").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sell]");
+  if (!b) return;
+  const coins = sell(b.dataset.sell, b.dataset.n === "all" ? "all" : 1);
+  if (coins) toast(`+${coins} coins.`, "good");
+  renderInventory();
+  save();
+});
+$("sell-all").addEventListener("click", () => {
+  const coins = CROPS.reduce((t, c) => t + sell(c, "all"), 0);
+  if (coins) toast(`You sold everything for ${coins} coins.`, "good");
+  renderInventory();
+  save();
+});
+
+function climate(l) {
+  const bits = [];
+  if (l.dry < 0.95) bits.push("soil stays damp");
+  if (l.dry > 1.05) bits.push("dries out fast");
+  if (l.grow > 1.05) bits.push("fast growing");
+  if (l.grow < 0.95) bits.push("slow growing");
+  return bits.join(" · ") || "an easy, even climate";
+}
+
+function renderFarms() {
+  $("farms-coins").textContent = profile.coins;
+  $("farm-list").innerHTML = LOCATIONS.map((l) => {
+    const owned = profile.owned.includes(l.id);
+    const here = l.id === loc.id;
+    let action;
+    if (here) action = `<span class="farm-here">You're here</span>`;
+    else if (owned) action = `<button type="button" data-go="${l.id}">Go there</button>`;
+    else action = `<button type="button" data-buy="${l.id}" ${profile.coins >= l.price ? "" : "disabled"}>Buy · ${l.price} coins</button>`;
+    return `<article class="farm-card" data-scene="${l.id}" data-owned="${owned}">
+      <canvas class="farm-view" data-scene="${l.id}" width="272" height="154" aria-hidden="true"></canvas>
+      <div class="farm-text">
+        <h3>${l.name}</h3>
+        <p>${l.about}</p>
+        <p class="fine">${cap(climate(l))}</p>
+      </div>
+      <div class="farm-action">${action}</div>
+    </article>`;
+  }).join("");
+  for (const c of $("farm-list").querySelectorAll("canvas[data-scene]")) drawThumb(c, c.dataset.scene);
+}
+
+// A small picture of a farm's view: its sky, its far landscape and its ground, in sunshine.
+function drawThumb(c, id) {
+  const t = c.getContext("2d");
+  const w = c.width;
+  const h = c.height;
+  const scene = sceneFor(id);
+  const hy = h * 0.58;
+  const g = t.createLinearGradient(0, 0, 0, hy);
+  g.addColorStop(0, scene.sky.sunTop);
+  g.addColorStop(1, scene.sky.sunBottom);
+  t.fillStyle = g;
+  t.fillRect(0, 0, w, hy + 1);
+  scene.drawBack(t, { W: w, H: h, hy, camX: 1.5, rain: 0, sun: 1, time: 0, skyBottom: scene.sky.sunBottom });
+  const gg = t.createLinearGradient(0, hy, 0, h);
+  gg.addColorStop(0, scene.ground.far);
+  gg.addColorStop(1, scene.ground.near);
+  t.fillStyle = gg;
+  t.fillRect(0, hy, w, h - hy);
+}
+
+function travel(id) {
+  if (!profile.owned.includes(id) || id === loc.id) return;
+  save();
+  openFarm(id);
+  hideInfo();
+  closePanel();
+  save();
+  renderInventory();
+  toast(`Welcome to ${loc.name}.`, "good");
+}
+
+$("farm-list").addEventListener("click", (e) => {
+  const go = e.target.closest("[data-go]");
+  const buy = e.target.closest("[data-buy]");
+  if (go) travel(go.dataset.go);
+  if (buy) {
+    const l = locationById(buy.dataset.buy);
+    if (profile.owned.includes(l.id) || profile.coins < l.price) return;
+    profile.coins -= l.price;
+    profile.owned.push(l.id);
+    save();
+    travel(l.id);
+    toast(`You bought ${l.name}. Bare ground and a view: sow something.`, "good");
+  }
+});
+
+// ---------- account ----------
+
+function firstName(u) {
+  return (u?.displayName || u?.email || "").split(/[\s@]/)[0];
+}
+
+function setSync(text) {
+  $("sync").textContent = text;
+}
+
+function renderAccount() {
+  const b = $("account");
+  b.textContent = user ? `${firstName(user)} · Sign out` : "Sign in to save";
+  b.dataset.signedIn = String(!!user);
+  $("intro-signin").hidden = !!user;
+  $("intro-signed-in").hidden = !user;
+  $("intro-signed-in").textContent = user ? `Signed in as ${firstName(user)}. Your farm saves to your account.` : "";
+  if (!user) setSync("Saved on this browser");
+}
+
+async function signIn() {
+  const c = cloud();
+  if (!c) { toast("Sign-in isn't available right now. Your farm still saves on this browser.", "bad"); return; }
+  try {
+    await c.auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+  } catch (err) {
+    if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
+      toast(`Couldn't sign in: ${err.message}`, "bad");
+    }
+  }
+}
+
+$("account").addEventListener("click", () => {
+  const c = cloud();
+  if (user && c) { flushCloud(); c.auth.signOut(); toast("Signed out. Your farm stays on this browser too."); }
+  else signIn();
+});
+$("intro-signin").addEventListener("click", signIn);
+
+{
+  const c = cloud();
+  if (c) {
+    c.auth.onAuthStateChanged(async (u) => {
+      user = u;
+      renderAccount();
+      if (!u) return;
+      setSync("Loading your farm…");
+      try {
+        const remote = await loadCloud(u.uid);
+        if (remote) {
+          // Your account's farm wins over what this browser had.
+          profile = remote;
+          openFarm(profile.current);
+          hideInfo();
+          saveLocal(profile);
+          setSync("Saved");
+          toast(`Welcome back, ${firstName(u)}. Your farm is loaded.`, "good");
+        } else {
+          save();
+          await flushCloud();
+          toast(`Your farm is saved to your account now, ${firstName(u)}.`, "good");
+        }
+      } catch (err) {
+        console.error(err);
+        setSync("Not saved");
+        toast("Couldn't reach your saved farm. It still saves on this browser.", "bad");
+      }
+      renderInventory();
+    });
+  } else {
+    renderAccount();
+  }
+}
+
+// Save when you leave or hide the tab.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { save(); flushCloud(); }
+});
+window.addEventListener("pagehide", () => save());
+
+renderInventory();
+renderAccount();
 
 // ---------- start ----------
 
@@ -885,11 +1316,11 @@ $("start-keys").addEventListener("click", () => {
 });
 
 $("new-field").addEventListener("click", () => {
-  if (!confirm("Start over with a new field?")) return;
-  newField();
+  if (!confirm(`Clear ${loc.name} and start it again? Your coins, seeds and fruit stay.`)) return;
+  newLandField();
   hideInfo();
   save();
-  toast("A new field.");
+  toast("Bare ground again. Sow something.");
 });
 
 $("guide-toggle").addEventListener("click", () => {

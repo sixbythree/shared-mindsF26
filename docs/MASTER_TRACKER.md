@@ -57,7 +57,9 @@
   - [x] Plants lean toward the screen in the sun and rest without it
   - [x] Keyboard and mouse fallback; field saved in the browser; `?speed=` for demos
   - [x] Card on the root index (07)
-  - [ ] Play-test the gestures with a real person on camera and tune `TUNING`
+  - [x] Play-tested on a real camera (user recording); gameplay clip in the post
+  - [x] Farm game: picking, seed bag and picker, market, four new farm locations, Google sign-in saving
+  - [ ] Deploy `firestore.rules` so signed-in farms save to Firestore
 
 ## In progress
 - [ ] 03 100 (A05), draft started 2026-10-26 in `a05_100/`

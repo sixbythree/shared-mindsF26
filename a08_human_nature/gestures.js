@@ -6,7 +6,8 @@
 //   sow     shake an OK sign (thumb and index touching, other fingers out) -> seeds fall (held)
 //   chop    one flat hand swings down fast                            -> cut the selected plant
 //   fist    close a hand and move it                                  -> drag the view
-//   pinch   the same OK sign, held still for a moment                 -> select a plant / close
+//   pinch   the same OK sign, held still for a moment                 -> select / pick a plant, close
+//   point   index finger up, the others curled, moved left and right  -> choose a seed (held)
 //
 // Camera positions are mirrored and normalized: u is 0 at the left, v is 0 at the top.
 // state.hands carries the same points mapped onto the screen, for the ghost hands.
@@ -39,6 +40,8 @@ export const TUNING = {
   shakeTurns: 2,        // turns back and forth needed in that time
   sowRelease: 0.4,      // seconds after the shaking stops that sowing ends
   sowEvery: 0.2,        // seconds between seeds while sowing
+  pointHold: 0.3,       // seconds pointing before the seed picker opens
+  pointRelease: 0.35,   // seconds without pointing before it closes (and the seed is chosen)
   // Back of the hand: how flat-on the hand must be (0 is edge-on, 1 is fully flat) and
   // how long it has to be shown before the rain starts or stops.
   backFlatness: 0.25,
@@ -94,6 +97,7 @@ export function createGestures({ video, onEvent, onStatus, view }) {
   let sunEndedAt = -10;
   let lastSwing = -10;
   let sowHand = null;
+  let seedHand = null;
   let lastSow = 0;
   // One gesture at a time. `active` is the held gesture running now ("sun", "rain", "sow"
   // or "drag"); while it runs, no other gesture can start. When any gesture ends or fires,
@@ -106,6 +110,7 @@ export function createGestures({ video, onEvent, onStatus, view }) {
     active = null;
     dragHand = null;
     sowHand = null;
+    seedHand = null;
     quietUntil = Math.max(quietUntil, t + quiet);
   }
   let flash = { text: "", until: 0 };
@@ -268,7 +273,9 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       v: (wrist.v + by.index_finger_mcp.v + by.middle_finger_mcp.v + by.pinky_finger_mcp.v) / 4,
     };
     const pinchAt = { u: (by.thumb_tip.u + by.index_finger_tip.u) / 2, v: (by.thumb_tip.v + by.index_finger_tip.v) / 2 };
-    return { pts, size, ratio, curled, straight, pinchD, thumbMeetsTip, middleStraight: ratio[1] > TUNING.straightAbove, palm, pinchAt, facing: facing(hand, pts) };
+    // Pointing: the index finger straight, the other three curled.
+    const pointing = ratio[0] > TUNING.straightAbove && ratio[1] < TUNING.curledBelow && ratio[2] < TUNING.curledBelow && ratio[3] < TUNING.curledBelow;
+    return { pts, size, ratio, curled, straight, pointing, pinchD, thumbMeetsTip, middleStraight: ratio[1] > TUNING.straightAbove, palm, pinchAt, facing: facing(hand, pts) };
   }
 
   // Palm or back toward the camera. In the camera's own (unmirrored) image, a right hand with
@@ -377,10 +384,21 @@ export function createGestures({ video, onEvent, onStatus, view }) {
         }
       }
 
-      // Fist: at least three fingers curled. Moving it drags the view.
+      // Fist: at least three fingers curled, including the index (so pointing isn't a fist).
       const wasFist = tr.fist;
-      if (!tr.fist && info.curled >= 3) tr.fist = true;
-      else if (tr.fist && info.straight >= 3) tr.fist = false;
+      if (!tr.fist && info.curled >= 3 && info.ratio[0] < TUNING.straightAbove) tr.fist = true;
+      else if (tr.fist && (info.straight >= 3 || info.pointing)) tr.fist = false;
+
+      // Pointing, held for a moment, opens the seed picker.
+      if (info.pointing) {
+        tr.notPointSince = null;
+        tr.pointSince ??= t;
+        if (!tr.point && t - tr.pointSince > TUNING.pointHold) tr.point = true;
+      } else {
+        tr.pointSince = null;
+        tr.notPointSince ??= t;
+        if (tr.point && t - tr.notPointSince > TUNING.pointRelease) tr.point = false;
+      }
       // Fist drag: follow a smoothed palm and ignore tiny jitter.
       if (active === "drag" && tr === dragHand && tr.fist && wasFist && tr.lastPalm) {
         const a = TUNING.dragSmoothing;
@@ -430,6 +448,7 @@ export function createGestures({ video, onEvent, onStatus, view }) {
     // The O wins over everything: forming it stops rain or a drag.
     if (bodyFresh && checkO()) {
       if (active === "rain" || active === "drag" || active === "sow") endActive(t, 0);
+      if (active === "seeds") { endActive(t, 0); onEvent("seedsDone", { cancel: true }); }
       oTime += dt;
       oMissing = 0;
       if (!state.sun && oTime > TUNING.oHold && active === null && t >= quietUntil) {
@@ -474,9 +493,14 @@ export function createGestures({ video, onEvent, onStatus, view }) {
     if (active === "drag" && !(dragHand && fresh(dragHand) && dragHand.fist && tracked.includes(dragHand))) endActive(t, TUNING.afterHeld);
     const shaking = (tr) => fresh(tr) && tr.pinch && tr.lastShakeAt !== null && tr.lastShakeAt !== undefined && t - tr.lastShakeAt < TUNING.sowRelease;
     if (active === "sow" && !(sowHand && tracked.includes(sowHand) && shaking(sowHand))) endActive(t, TUNING.afterHeld);
+    if (active === "seeds" && !(seedHand && tracked.includes(seedHand) && seedHand.point)) {
+      endActive(t, TUNING.afterHeld);
+      onEvent("seedsDone", {});
+    }
     if (free(t)) {
       const fistHand = tracked.find((tr) => fresh(tr) && tr.fist);
       const shaker = tracked.find(shaking);
+      const pointer = tracked.find((tr) => fresh(tr) && tr.point);
       if (fistHand) {
         active = "drag";
         dragHand = fistHand;
@@ -485,6 +509,10 @@ export function createGestures({ video, onEvent, onStatus, view }) {
         active = "sow";
         sowHand = shaker;
         lastSow = 0;
+      } else if (pointer) {
+        active = "seeds";
+        seedHand = pointer;
+        onEvent("seedsOpen", {});
       } else if (anyBack) {
         active = "rain";
       }
@@ -503,6 +531,15 @@ export function createGestures({ video, onEvent, onStatus, view }) {
       h.back = active === "rain" && tr.back;
       h.pinch = !!tr.pinchFired && active !== "sow";
       h.sow = active === "sow" && tr === sowHand;
+      h.point = active === "seeds" && tr === seedHand;
+    }
+    // While choosing a seed, where the index fingertip is (screen 0..1).
+    if (active === "seeds" && seedHand) {
+      const i = tracked.indexOf(seedHand);
+      const tip = state.hands[i]?.pts[8];
+      state.seedPick = tip ? { x: tip.x, y: tip.y } : state.seedPick;
+    } else {
+      state.seedPick = null;
     }
     state.active = active;
     state.backShown = active === "rain";
@@ -528,6 +565,7 @@ export function createGestures({ video, onEvent, onStatus, view }) {
     if (state.sun) state.label = "O: the sun is out";
     else if (active === "rain") state.label = "Back of the hand: rain";
     else if (active === "sow") state.label = "Shaking: sowing seeds";
+    else if (active === "seeds") state.label = "Pointing: choose a seed";
     else if (active === "drag") state.label = "Fist: dragging";
     else if (t < flash.until) state.label = flash.text[0].toUpperCase() + flash.text.slice(1);
     else if (oTime > 0) state.label = "Hold the O…";

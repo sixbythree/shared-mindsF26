@@ -169,7 +169,7 @@ kbd {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 1.4rem;
+  bottom: 4.6rem;
   max-width: min(32rem, calc(100% - 2rem));
   margin: 0;
   padding: 0.65rem 1.1rem;
@@ -548,5 +548,319 @@ body[data-mode="camera"] .guide-list kbd {
   }
   .toast.show {
     animation-duration: 4s !important;
+  }
+}
+
+/* HUD buttons, account, sync */
+
+.hud-button {
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.hud-button:hover {
+  background: #fff;
+}
+
+.sync {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+#account[data-signed-in="true"] {
+  border-color: rgb(63 125 58 / 35%);
+}
+
+button.small {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+}
+
+/* Seed chip (what you're sowing) */
+
+.seed-chip {
+  position: fixed;
+  left: 50%;
+  bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.95rem 0.45rem 0.55rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  backdrop-filter: blur(8px);
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
+.seed-chip:hover {
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.seed-chip[data-empty="true"] .seed-chip-count {
+  color: var(--bad);
+}
+
+.seed-chip-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.seed-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.seed-swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: none;
+  border: 1.5px solid #26301f;
+  border-radius: 50%;
+}
+
+/* Seed picker */
+
+.seed-picker {
+  position: fixed;
+  left: 50%;
+  bottom: 4.2rem;
+  width: min(54rem, calc(100% - 2rem));
+  padding: 0.85rem 1rem 1rem;
+  border-radius: 18px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 16px 40px rgb(40 50 30 / 18%);
+  transform: translateX(-50%);
+  z-index: 5;
+}
+
+.seed-picker[hidden] {
+  display: none;
+}
+
+.seed-picker-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+  font-family: "Caveat", cursive;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.seed-picker-hint {
+  color: var(--muted);
+  font-family: "Inter", sans-serif;
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.seed-picker[data-by="gesture"] .mouse-only,
+.seed-picker[data-by="mouse"] .gesture-only {
+  display: none;
+}
+
+.seed-cards {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.45rem;
+}
+
+.seed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.7rem 0.3rem 0.55rem;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  transition: transform 140ms var(--ease), border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+.seed-card .seed-swatch {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+.seed-card-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.seed-card-count {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.seed-card kbd {
+  font-size: 0.65rem;
+}
+
+.seed-card[data-empty="true"] {
+  opacity: 0.45;
+}
+
+.seed-card[data-chosen="true"] {
+  border-color: var(--accent);
+}
+
+.seed-card[data-active="true"] {
+  border-color: #26301f;
+  box-shadow: 0 0 0 3px rgb(63 125 58 / 30%);
+  transform: translateY(-6px) scale(1.06);
+}
+
+/* Market and farms */
+
+.market-panel,
+.farms-panel {
+  position: relative;
+  width: min(40rem, 100%);
+}
+
+.farms-panel {
+  width: min(48rem, 100%);
+}
+
+.market-panel h2,
+.farms-panel h2 {
+  margin: 0 0 0.3rem;
+  font-family: "Caveat", cursive;
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.panel-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.4rem;
+}
+
+.coins-line {
+  margin: 0.3rem 0 0.8rem;
+}
+
+.market-rows {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.market-row {
+  display: grid;
+  grid-template-columns: auto 1fr 3rem 5rem auto auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 70%);
+  font-size: 0.88rem;
+}
+
+.market-row[data-empty="true"] {
+  color: var(--muted);
+}
+
+.market-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.market-price {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.farm-list {
+  display: grid;
+  gap: 0.7rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  margin-top: 0.8rem;
+  padding-right: 0.2rem;
+}
+
+.farm-card {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.6rem;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 70%);
+}
+
+.farm-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.farm-card p {
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.farm-view {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 272 / 154;
+  border-radius: 10px;
+}
+
+.farm-card[data-owned="false"] .farm-view {
+  filter: saturate(0.7);
+}
+
+.farm-here {
+  color: var(--good);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.signin-row {
+  margin-top: 0.9rem !important;
+}
+
+@media (max-width: 640px) {
+  .seed-cards {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .market-row {
+    grid-template-columns: auto 1fr 2.5rem auto;
+  }
+  .market-price,
+  .market-row button[data-n="1"] {
+    display: none;
+  }
+  .farm-card {
+    grid-template-columns: 1fr;
+  }
+  .sync {
+    display: none;
   }
 }

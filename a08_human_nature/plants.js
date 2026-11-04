@@ -116,11 +116,26 @@ export function syncNextId(plants) {
 }
 
 export function isBad(p) {
-  return SPECIES[p.species].kind === "weed" || p.barren || p.dead;
+  return SPECIES[p.species].kind === "weed" || p.barren || p.dead || p.spent;
 }
 
 export function isRipe(p) {
-  return SPECIES[p.species].kind === "crop" && !p.barren && !p.dead && p.growth >= 1 && p.fruit >= 1;
+  return SPECIES[p.species].kind === "crop" && !p.barren && !p.spent && !p.dead && p.growth >= 1 && p.fruit >= 1;
+}
+
+// A plant can be picked this many times; after that it's spent and should be cut down.
+export const MAX_HARVESTS = 3;
+export const SEEDS_PER_HARVEST = 2;
+
+// Pick a ripe plant: all its fruit, plus a couple of its seeds. The fruit grows back.
+export function harvest(p) {
+  if (!isRipe(p)) return null;
+  const count = SPECIES[p.species].fruit.count;
+  p.fruit = 0;
+  p.announced = false;
+  p.harvests = (p.harvests || 0) + 1;
+  if (p.harvests >= MAX_HARVESTS) p.spent = true;
+  return { count, seeds: SEEDS_PER_HARVEST, spent: !!p.spent };
 }
 
 // One step of the simulation for one plant. Returns an event name or null.
@@ -128,7 +143,9 @@ export function stepPlant(p, dt, env) {
   const sp = SPECIES[p.species];
   if (p.cut) return null;
 
-  p.water -= dt * (RULES.dryRate + RULES.sunDryRate * env.sun);
+  const dryMul = env.dryMul ?? 1;
+  const growMul = env.growMul ?? 1;
+  p.water -= dt * (RULES.dryRate + RULES.sunDryRate * env.sun) * dryMul;
   p.water += dt * RULES.rainRate * env.rain;
   p.water = Math.min(1, Math.max(0, p.water));
 
@@ -153,14 +170,14 @@ export function stepPlant(p, dt, env) {
 
   if (sp.kind === "weed") {
     // Weeds don't wait for the sun.
-    if (!thirsty && p.growth < 1) p.growth = Math.min(1, p.growth + dt * sp.rate * (0.5 + 0.5 * env.sun));
+    if (!thirsty && p.growth < 1) p.growth = Math.min(1, p.growth + dt * sp.rate * (0.5 + 0.5 * env.sun) * growMul);
     return null;
   }
 
   if (p.growth < 1) {
     if (!thirsty && env.sun > 0.05) {
       const wet = Math.min(1, p.water / 0.45);
-      p.growth = Math.min(1, p.growth + dt * sp.rate * env.sun * (0.35 + 0.65 * wet));
+      p.growth = Math.min(1, p.growth + dt * sp.rate * env.sun * (0.35 + 0.65 * wet) * growMul);
       if (p.growth >= 1) {
         const chance = RULES.barrenBase + Math.min(0.45, p.thirstTime * RULES.barrenPerDrySecond);
         p.barren = Math.random() < chance;
@@ -170,8 +187,8 @@ export function stepPlant(p, dt, env) {
     return null;
   }
 
-  if (!p.barren && p.fruit < 1 && !thirsty && env.sun > 0.05) {
-    p.fruit = Math.min(1, p.fruit + dt * RULES.ripenRate * env.sun);
+  if (!p.barren && !p.spent && p.fruit < 1 && !thirsty && env.sun > 0.05) {
+    p.fruit = Math.min(1, p.fruit + dt * RULES.ripenRate * env.sun * growMul);
     if (p.fruit >= 1 && !p.announced) {
       p.announced = true;
       return "ripe";
@@ -189,8 +206,9 @@ export function describe(p) {
   else if (p.growth < 0.08) status = "A seed, just planted.";
   else if (p.growth < 1) status = `Growing, ${pct}%.`;
   else if (p.barren) status = "Fully grown, but it never fruited. Cut it down.";
-  else if (p.fruit < 1) status = `Fully grown. Fruit ripening, ${Math.round(p.fruit * 100)}%.`;
-  else status = "Bearing fruit.";
+  else if (p.spent) status = `It has given all its fruit (${MAX_HARVESTS} harvests). Cut it down to make room.`;
+  else if (p.fruit < 1) status = `${p.harvests ? `Picked ${p.harvests} of ${MAX_HARVESTS} times. Fruit growing back` : "Fully grown. Fruit ripening"}, ${Math.round(p.fruit * 100)}%.`;
+  else status = "Bearing fruit. Pinch it to pick.";
   let water;
   if (p.dead) water = "";
   else if (p.water <= 0) water = "Bone dry.";
@@ -388,7 +406,9 @@ function drawFruit(ctx, x, y, r, shape, color, ripe) {
 }
 
 // Draw one plant with its base at (bx, by). unit is the plant height at full growth, in pixels.
-export function drawPlant(ctx, p, bx, by, unit, env) {
+export function drawPlant(ctx, plant, bx, by, unit, env) {
+  // A spent plant looks like one that never fruited.
+  const p = plant.spent ? { ...plant, barren: true } : plant;
   const sp = SPECIES[p.species];
   const g = p.growth;
   const dry = p.dead ? 1 : Math.max(0, Math.min(1, 1 - p.water / 0.3));
