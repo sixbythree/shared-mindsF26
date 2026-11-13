@@ -61,6 +61,18 @@
   - [x] Farm game: picking, seed bag and picker, market, four new farm locations, Google sign-in saving
   - [ ] Deploy `firestore.rules` so signed-in farms save to Firestore
 
+- [x] 08 Black Point (A09, Interface Metaphor), 2026-11-13, in `a09_black_point/`
+  - [x] Portfolio post written from the HW 9 notes (09 Black Point): reading notes, writing, the idea, how it works, five screenshots, square thumbnail, full notes image, `live:` link (not committed: the portfolio repo has unrelated work in progress)
+  - [x] Webcam + ml5 handPose; lean = palm size against a calibrated resting hand
+  - [x] Ten statements, six seconds each, from pizza to God; answer = average lean over the last three seconds
+  - [x] Lean in moves the black and white points; lean out solarizes toward a full inversion (a straight slide to the negative went flat gray halfway)
+  - [x] Live tone curve with histogram, both diagonals, black and white point levels
+  - [x] Results: the ten curves averaged into one filter, live view or the ten pictures averaged, Color (saturation) slider, Save image, ten cards, a short reading
+  - [x] Arrow-key fallback and a drawn stand-in without a camera; `?answers=` and `?seconds=` for scripted tests
+  - [x] Card on the root index (08)
+  - [ ] Play-test the hand lean on a real camera and tune `LEAN` (in/out ranges, dead zone)
+  - [ ] Commit the portfolio post once the portfolio's in-progress work is sorted
+
 ## In progress
 - [ ] 03 100 (A05), draft started 2026-10-26 in `a05_100/`
   - [x] Rules module (`rules.js`): 100-connection cap, 7-day window, 3-of-7 engagement, 5-min calls, 30-day block, New York calendar days

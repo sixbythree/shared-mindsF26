@@ -1,5 +1,11 @@
 # Roadmap — Shared Minds
 
+## Black Point (A09) follow-ups
+- Play-test the hand lean on a real camera; tune `LEAN` in `script.js` (in/out ranges, dead zone, smoothing)
+- Shared filters: save each person's averaged curve to Firestore and show how others leaned on the same statements
+- Statement sets (or writing your own) beyond the fixed ten
+- Try a color run from the start (the notes ask about black and white vs. color and saturation)
+
 ## Human Nature (A08) follow-ups
 - Play-test with a real body on camera; tune the O, flutter, throw and chop thresholds (`TUNING` in `gestures.js`)
 - Seasons or a day/night cycle so the field changes over a longer session

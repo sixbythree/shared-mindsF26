@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Black Point: agree or disagree with ten statements by leaning your hand toward the camera or away from it. Each answer sets the black point, white point or inversion of your picture, and the ten average into your own black-and-white filter.">
+  <title>Black Point — Shared Minds</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="script.js"></script>
+</head>
+<body data-mode="intro">
+  <header class="top">
+    <a class="back-link" href="https://www.six-hq.com/itp/semester-3/shared-minds/09-interface-metaphor">&larr; Back to the post</a>
+    <span class="brand">Black Point</span>
+    <span id="status" class="status" aria-live="polite"></span>
+  </header>
+
+  <main class="layout">
+    <section class="stage-wrap">
+      <div class="stage">
+        <canvas id="stage" width="480" height="480" aria-label="Your camera, in black and white, with the current statement over it"></canvas>
+
+        <div class="overlay intro-card" id="intro">
+          <h1>Black Point</h1>
+          <p>Ten statements, six seconds each. They start small and get bigger.</p>
+          <p><strong>Lean your hand toward the camera to agree</strong> and the picture gains contrast as its black and white points close in. <strong>Pull it back to disagree</strong> and the picture turns inside out.</p>
+          <p>At the end, your ten answers average into your own black-and-white filter.</p>
+          <div class="actions">
+            <button id="start-hand" class="button primary" type="button">Start with my hand</button>
+            <button id="start-keys" class="button" type="button">Use the keys instead</button>
+          </div>
+          <p class="fine">The camera stays on your computer. Nothing is uploaded. With the keys: hold &uarr; to lean in, &darr; to lean out.</p>
+        </div>
+
+        <div class="overlay calibrate-card" id="calibrate" hidden>
+          <p class="big" id="calibrate-text">Hold up one open hand, palm to the camera, where it feels natural.</p>
+          <div class="ring"><span id="calibrate-fill"></span></div>
+          <p class="fine" id="calibrate-hint">Then lean it toward the camera to agree, back to disagree.</p>
+        </div>
+
+        <div class="statement" id="statement" hidden>
+          <span class="count" id="count">1 / 10</span>
+          <p id="statement-text"></p>
+          <div class="timer"><span id="timer-fill"></span></div>
+        </div>
+
+        <div class="overlay done-card" id="countdown" hidden>
+          <p class="big" id="countdown-text">3</p>
+        </div>
+      </div>
+
+      <div class="result-controls" id="result-controls" hidden>
+        <div class="segmented" role="tablist" aria-label="What the picture shows">
+          <button id="view-live" type="button" role="tab" aria-selected="true">Live, with your filter</button>
+          <button id="view-average" type="button" role="tab" aria-selected="false">Your ten, averaged</button>
+        </div>
+        <label class="slider">
+          <span>Color <output id="sat-value">0%</output></span>
+          <input id="saturation" type="range" min="0" max="100" value="0">
+        </label>
+        <div class="actions">
+          <button id="save" class="button" type="button">Save image</button>
+          <button id="again" class="button primary" type="button">Start over</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="curve-card">
+        <div class="card-head">
+          <span>Tone curve</span>
+          <span id="curve-label" class="muted">Neutral</span>
+        </div>
+        <canvas id="curve" width="300" height="300" aria-label="The tone curve: input brightness across, output brightness up, with the black point and white point marked"></canvas>
+        <dl class="points">
+          <div><dt>Black point</dt><dd id="black-point">0</dd></div>
+          <div><dt>White point</dt><dd id="white-point">255</dd></div>
+        </dl>
+      </div>
+
+      <div class="lean-card" id="lean-card">
+        <div class="card-head">
+          <span>Lean</span>
+          <span id="hand-label" class="muted">No hand yet</span>
+        </div>
+        <div class="meter" id="meter" aria-hidden="true">
+          <span class="meter-end">In · agree</span>
+          <div class="meter-track"><span class="meter-mid"></span><span id="meter-dot" class="meter-dot"></span></div>
+          <span class="meter-end">Out · disagree</span>
+        </div>
+      </div>
+
+      <div class="reading" id="reading" hidden>
+        <p id="reading-text"></p>
+      </div>
+    </aside>
+  </main>
+
+  <section class="answers" id="answers" hidden>
+    <h2>Your ten</h2>
+    <ol id="answer-list"></ol>
+  </section>
+
+  <video id="video" playsinline muted></video>
+</body>
+</html>
