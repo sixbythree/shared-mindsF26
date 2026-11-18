@@ -1,6 +1,6 @@
 # Session Handoff — Shared Minds (NYU ITP, Fall 2026)
 
-_Last updated: 2026-11-17_
+_Last updated: 2026-11-18_
 
 ## What this repo is
 Weekly assignments for the Shared Minds class, published as a static site on GitHub Pages (`index.html` at the root links to each project). Shared backend: Firebase project `shared-mindsf26` (Firestore, rules in `firestore.rules`) and the ITP/IMA Replicate proxy (`https://itp-ima-replicate-proxy.web.app/api/create_n_get`).
@@ -15,17 +15,18 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 | 05 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
 | 06 | `a07_spatial/` | Built 2026-10-28: Decisions (see below). Live: https://sixbythree.github.io/shared-mindsF26/a07_spatial/ |
 | 07 | `a08_human_nature/` | Built 2026-11-03: Human Nature (see below). Live: https://sixbythree.github.io/shared-mindsF26/a08_human_nature/ |
-| 08 | `a09_black_point/` | Built 2026-11-13: Black Point (see below). Live: https://sixbythree.github.io/shared-mindsF26/a09_black_point/ |
+| 08 | `a09_gray_point/` | Built 2026-11-13: Gray Point (see below). Live: https://sixbythree.github.io/shared-mindsF26/a09_gray_point/ |
 
-## A09 Black Point (current focus)
+## A09 Gray Point (current focus)
+- Renamed from Black Point on 2026-11-18 (folder `a09_black_point/` → `a09_gray_point/`, live URL changed; the old URL is gone). The tone curve's "Black point"/"White point" labels keep their technical names.
 - Interface Metaphor assignment. No-build page: `index.html`, `style.css`, `script.js` (flow, tone curves, drawing, results), `hand.js` (camera + ml5 1.4.0 handPose, palm size), `statements.js` (statement sets, Shuffle, Ask the machine).
-- Lean = palm size (average of wrist→index/middle/pinky knuckles and index→pinky knuckle, over video height) against a calibrated resting hand (median over 1.5s). `LEAN` in `script.js`: all the way in at 1.6× the resting size, all the way out at 0.62×, 8% dead zone, 0.12s smoothing; no hand for 0.4s drifts back to neutral. Same `<video>` width/height fix as A08.
+- Lean (`hand.js` + `leanFromHand` in `script.js`): palm length (wrist → index/middle/pinky knuckles, averaged) and palm width (index → pinky knuckle), each the median of the last 5 hand results, compared with a calibrated resting hand (median over 1.5s). The lean uses whichever ratio changed *less*, so turning or tilting the hand (which shrinks only one) doesn't read as a lean. `LEAN`: all the way in at 1.6×, out at 0.62×, 10% dead zone, 0.2s smoothing; a lost hand holds its last lean for 1s (`holdFor`), then eases to neutral. Checked with synthetic hands in Node (turn 35° → 0, tilt 35° → 0, 30% closer → 0.44, one misplaced knuckle → 0). Same `<video>` width/height fix as A08.
 - Curves (`curveFor`, `lutFor`): leaning in moves the black point up and the white point down (`MAX_CRUSH` 0.42). Leaning out solarizes: points (0,0) → (p,1) → (1,0) with p = 1 + lean, so the brightest tones flip first and full lean is a negative. The straight slide to the inverse was dropped because it went flat gray halfway.
-- Statements: seven curated sets of ten in `SETS` (Small to big, Philosophers from PhilPapers Survey topics, People and love, Work and money, Time and death, Minds and machines, Truth and belief), each ordered small → big. `shuffledSet()` takes position i from a random set's i-th statement. `machineSet(topic)` asks `openai/gpt-4o-mini` through the Replicate proxy for `{title, statements[10]}` (about 3s); on failure it falls back to Shuffle. Picker chips on the intro (remembered in localStorage `black-point-set`, or `?set=<id>`); the set is prepared while the camera and model load. Results have New statements (back to the picker; camera and model stay loaded) and Same ten again.
-- Each statement lasts 6s (+0.9s gap); the answer is the mean lean over the last 3s, and that frame is saved (480×480). Results: the average of the ten LUTs is the filter (live view), the ten frames through their own curves averaged (Your ten, averaged), Color slider (saturation 0–100%), Save image (PNG), ten cards and a reading (counts, hardest in/out, yes vs. no strength).
-- Without a camera, the arrow keys lean and a drawn figure stands in. Test params: `?answers=0.6,-0.4,…` (scripted leans, keys path, ticks on a timer for headless), `?seconds=`, `?camera=off`, `?view=average`, `?sat=`, `?debug` (`window.blackPoint`).
+- Statements: seven curated sets of ten in `SETS` (Small to big, Philosophers from PhilPapers Survey topics, People and love, Work and money, Time and death, Minds and machines, Truth and belief), each ordered small → big. `shuffledSet()` takes position i from a random set's i-th statement. `machineSet(topic)` asks `openai/gpt-4o-mini` through the Replicate proxy for `{title, statements[10]}` (about 3s); on failure it falls back to Shuffle. Picker chips on the intro (remembered in localStorage `gray-point-set`, or `?set=<id>`); the set is prepared while the camera and model load. Results have New statements (back to the picker; camera and model stay loaded) and Same ten again.
+- Each statement lasts 6s (+0.9s gap); the answer is the mean lean over the last 3s, and that frame is saved (480×480). Results: the average of the ten LUTs is the filter (live view), the ten frames through their own curves averaged (Your ten, averaged), Color slider (results open at 100% saturation; statements play in black and white), Save image (PNG), ten cards and a reading (counts, hardest in/out, yes vs. no strength).
+- Without a camera, the arrow keys lean and a drawn figure stands in. Test params: `?answers=0.6,-0.4,…` (scripted leans, keys path, ticks on a timer for headless), `?seconds=`, `?camera=off`, `?view=average`, `?sat=`, `?debug` (`window.grayPoint`).
 - Tested with headless Chrome over the DevTools protocol (a Node script in the session scratchpad): full scripted runs, results, averaged view, phone width, and the camera path with a fake webcam (ml5 and the hand model load, waits at calibration). **Not tried with a real hand yet.**
-- Portfolio post: content/itp/semester-3/shared-minds/09-interface-metaphor.md (title 09 Black Point, notes image, five screenshots, square thumbnail, `live:` link). Written and built locally but **not committed**: the portfolio repo had unrelated uncommitted work (readings pages, build-itp changes).
+- Portfolio post: content/itp/semester-3/shared-minds/09-interface-metaphor.md (title 09 Gray Point, notes image, five screenshots, square thumbnail, `live:` link). Committed in the portfolio (the user's db4fed7, then the Gray Point update).
 - The HW 9 PDF stays local (ignored).
 
 ## A08 Human Nature

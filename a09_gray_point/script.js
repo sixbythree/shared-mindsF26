@@ -1,4 +1,4 @@
-// Black Point: agree or disagree by leaning your hand in or out. Each answer is a tone curve;
+// Gray Point: agree or disagree by leaning your hand in or out. Each answer is a tone curve;
 // the ten curves and the ten pictures average into your own black-and-white filter.
 import { SETS, shuffledSet, machineSet } from "./statements.js";
 import { startCamera, createHand } from "./hand.js";
@@ -14,9 +14,10 @@ const SNAP = 480; // saved pictures are this size (the stage size, so the averag
 const LEAN = {
   inRange: 0.6, // palm looks 60% bigger than when calibrated = all the way in
   outRange: 0.38, // palm looks 38% smaller = all the way out
-  deadZone: 0.08, // small wobbles around your resting hand count as nothing
-  smoothing: 0.12, // seconds
-  lostAfter: 400, // ms without a hand before the lean drifts back to neutral
+  deadZone: 0.1, // small wobbles around your resting hand count as nothing
+  smoothing: 0.2, // seconds; the hand measure is already a median, this takes out what's left
+  holdFor: 1000, // ms a lost hand keeps its last lean (handPose drops hands for a moment, often mid-lean)
+  lostAfter: 400, // ms without a hand before the meter says it's lost
   keyRate: 1.3, // per second while holding an arrow key
 };
 // How far a full lean moves the curve.
@@ -45,8 +46,10 @@ const state = {
   camera: false,
   lean: 0,
   target: 0,
-  base: 0, // calibrated palm size
-  calSizes: [],
+  baseLen: 0, // calibrated palm length
+  baseWid: 0, // calibrated palm width
+  calLens: [],
+  calWids: [],
   calProgress: 0,
   countdown: 0,
   index: 0,
@@ -54,7 +57,7 @@ const state = {
   samples: [],
   answers: [],
   view: "live", // results: live | average
-  saturation: 0,
+  saturation: 1, // results open in full color; the slider turns it down
   avgLut: null,
   composite: null, // { gray, color } Float32Arrays at SNAP×SNAP
   histogram: new Float32Array(64),
@@ -170,9 +173,14 @@ function drawSource(time) {
 
 // ---------- Lean ----------
 
-function leanFromSize(size) {
-  if (!state.base) return 0;
-  const ratio = size / state.base;
+// The palm's length and width are compared with your resting hand, and whichever changed less is
+// the lean. Moving the whole hand toward or away from the camera changes both; turning or tilting it
+// shortens only one, so taking the smaller change means a turn or tilt doesn't read as a lean.
+function leanFromHand(len, wid) {
+  if (!state.baseLen || !state.baseWid) return 0;
+  const rl = len / state.baseLen;
+  const rw = wid / state.baseWid;
+  const ratio = Math.abs(rl - 1) < Math.abs(rw - 1) ? rl : rw;
   let d = ratio >= 1 ? (ratio - 1) / LEAN.inRange : -(1 - ratio) / LEAN.outRange;
   d = Math.max(-1, Math.min(1, d));
   const m = Math.max(0, Math.abs(d) - LEAN.deadZone) / (1 - LEAN.deadZone);
@@ -181,8 +189,10 @@ function leanFromSize(size) {
 
 let updateLean = function (dt, now) {
   if (state.input === "hand") {
-    const fresh = now - hand.state.lastSeen < LEAN.lostAfter;
-    state.target = fresh && state.base ? leanFromSize(hand.state.size) : 0;
+    const gone = now - hand.state.lastSeen;
+    if (gone < 150) state.target = leanFromHand(hand.state.len, hand.state.wid);
+    else if (gone > LEAN.holdFor) state.target = 0;
+    // In between, the last lean holds.
   } else {
     if (state.keys.up) state.target += LEAN.keyRate * dt;
     if (state.keys.down) state.target -= LEAN.keyRate * dt;
@@ -251,7 +261,7 @@ function savedChoice() {
   const fromUrl = params.get("set");
   if (CHOICES.some((c) => c.id === fromUrl)) return fromUrl;
   try {
-    const saved = localStorage.getItem("black-point-set");
+    const saved = localStorage.getItem("gray-point-set");
     if (CHOICES.some((c) => c.id === saved)) return saved;
   } catch {}
   return SETS[0].id;
@@ -282,7 +292,7 @@ function chooseSet(id) {
   $("set-blurb").textContent = c.blurb;
   $("topic").hidden = id !== "machine";
   try {
-    localStorage.setItem("black-point-set", id);
+    localStorage.setItem("gray-point-set", id);
   } catch {}
 }
 
@@ -307,9 +317,10 @@ function backToSets() {
 }
 
 function startCalibration() {
-  state.calSizes = [];
+  state.calLens = [];
+  state.calWids = [];
   state.calProgress = 0;
-  state.base = 0;
+  state.baseLen = state.baseWid = 0;
   $("calibrate-text").textContent = "Hold up one open hand, palm to the camera, where it feels natural.";
   setMode("calibrate");
 }
@@ -317,16 +328,21 @@ function startCalibration() {
 function updateCalibration(dt, now) {
   const fresh = now - hand.state.lastSeen < 200;
   if (fresh) {
-    state.calSizes.push(hand.state.size);
+    state.calLens.push(hand.state.len);
+    state.calWids.push(hand.state.wid);
     state.calProgress += dt / 1.5;
   } else {
     state.calProgress = Math.max(0, state.calProgress - dt);
-    if (state.calProgress === 0) state.calSizes = [];
+    if (state.calProgress === 0) {
+      state.calLens = [];
+      state.calWids = [];
+    }
   }
   $("calibrate-fill").style.width = `${Math.min(1, state.calProgress) * 100}%`;
   if (state.calProgress >= 1) {
-    const sorted = [...state.calSizes].sort((a, b) => a - b);
-    state.base = sorted[Math.floor(sorted.length / 2)];
+    const med = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    state.baseLen = med(state.calLens);
+    state.baseWid = med(state.calWids);
     startCountdown();
   }
 }
@@ -677,7 +693,7 @@ $("save").addEventListener("click", () => {
     if (!blob) return;
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = state.view === "average" ? "black-point-averaged.png" : "black-point.png";
+    a.download = state.view === "average" ? "gray-point-averaged.png" : "gray-point.png";
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
@@ -704,7 +720,7 @@ window.addEventListener("blur", () => {
 state.choice = savedChoice();
 renderChoices();
 
-if (params.has("debug")) window.blackPoint = { state, hand, curveFor, lutFor };
+if (params.has("debug")) window.grayPoint = { state, hand, curveFor, lutFor };
 
 // For testing and demos: ?answers=0.8,-0.5,… plays those leans with the keys path, one per statement.
 // ?view=average opens the results on the averaged picture, ?sat=40 sets the color.

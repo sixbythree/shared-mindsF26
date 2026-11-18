@@ -40,41 +40,61 @@ export async function startCamera(video) {
   }
 }
 
-// Palm size: the average of four distances across the palm (wrist to the index, middle and pinky
-// knuckles, and index knuckle to pinky knuckle), as a share of the video's height. Using several
-// distances keeps it steady when the hand tilts.
-export function palmSize(keypoints, videoHeight) {
+// Palm length (wrist to the index, middle and pinky knuckles, averaged) and palm width (index knuckle
+// to pinky knuckle), as shares of the video's height. They're kept apart because tilting the hand
+// shortens one but not the other; script.js reads whichever changed more, so a tilt isn't a lean.
+export function palmMeasure(keypoints, videoHeight) {
   const k = keypoints;
-  if (!k || k.length < 21) return 0;
+  if (!k || k.length < 21) return null;
   const d = (a, b) => Math.hypot(k[a].x - k[b].x, k[a].y - k[b].y);
-  return (d(0, 5) + d(0, 9) + d(0, 17) + d(5, 17)) / 4 / videoHeight;
+  return {
+    len: (d(0, 5) + d(0, 9) + d(0, 17)) / 3 / videoHeight,
+    wid: d(5, 17) / videoHeight,
+  };
 }
+
+const median = (xs) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s[Math.floor(s.length / 2)];
+};
+
+// How many hand results the median runs over. handPose jitters frame to frame, and now and then
+// misplaces a knuckle; a median of five throws those out at the cost of a short lag.
+const WINDOW = 5;
 
 export function createHand(video) {
   const state = {
     ready: false,
     found: false, // a hand is in view right now
-    size: 0, // latest palm size
+    len: 0, // palm length, median of the last few results
+    wid: 0, // palm width, the same
     lastSeen: -Infinity, // performance.now() of the last hand
     center: null, // palm center in the mirrored image, 0–1
   };
+  const recent = { len: [], wid: [] };
 
   function gotHands(results) {
     const now = performance.now();
     // The biggest hand wins (the one nearest the camera).
     let best = null;
-    let bestSize = 0;
+    let bestM = null;
     for (const hand of results || []) {
       if ((hand.confidence ?? 1) < 0.5) continue;
-      const size = palmSize(hand.keypoints, video.height || 480);
-      if (size > bestSize) {
+      const m = palmMeasure(hand.keypoints, video.height || 480);
+      if (m && (!bestM || m.len + m.wid > bestM.len + bestM.wid)) {
         best = hand;
-        bestSize = size;
+        bestM = m;
       }
     }
     if (best) {
+      // A hand that's been gone a while starts a fresh window, so old sizes don't leak in.
+      if (now - state.lastSeen > 500) recent.len.length = recent.wid.length = 0;
+      recent.len.push(bestM.len);
+      recent.wid.push(bestM.wid);
+      if (recent.len.length > WINDOW) recent.len.shift(), recent.wid.shift();
       state.found = true;
-      state.size = bestSize;
+      state.len = median(recent.len);
+      state.wid = median(recent.wid);
       state.lastSeen = now;
       const k = best.keypoints;
       const cx = (k[0].x + k[5].x + k[17].x) / 3;

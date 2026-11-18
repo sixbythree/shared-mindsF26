@@ -1,6 +1,6 @@
 # Roadmap — Shared Minds
 
-## Black Point (A09) follow-ups
+## Gray Point (A09) follow-ups
 - Play-test the hand lean on a real camera; tune `LEAN` in `script.js` (in/out ranges, dead zone, smoothing)
 - Shared filters: save each person's averaged curve to Firestore and show how others leaned on the same statements
 - Write your own ten (typed statements), and share a set by link

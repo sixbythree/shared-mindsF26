@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Black Point: agree or disagree with ten statements by leaning your hand toward the camera or away from it. Each answer sets the black point, white point or inversion of your picture, and the ten average into your own black-and-white filter.">
-  <title>Black Point — Shared Minds</title>
+  <meta name="description" content="Gray Point: agree or disagree with ten statements by leaning your hand toward the camera or away from it. Each answer sets the black point, white point or inversion of your picture, and the ten average into your own black-and-white filter.">
+  <title>Gray Point — Shared Minds</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -14,7 +14,7 @@
 <body data-mode="intro">
   <header class="top">
     <a class="back-link" href="https://www.six-hq.com/itp/semester-3/shared-minds/09-interface-metaphor">&larr; Back to the post</a>
-    <span class="brand">Black Point</span>
+    <span class="brand">Gray Point</span>
     <span id="status" class="status" aria-live="polite"></span>
   </header>
 
@@ -24,8 +24,8 @@
         <canvas id="stage" width="480" height="480" aria-label="Your camera, in black and white, with the current statement over it"></canvas>
 
         <div class="overlay intro-card" id="intro">
-          <h1>Black Point</h1>
-          <p>Ten statements, six seconds each. They start small and get bigger. <strong>Lean your hand toward the camera to agree</strong> and the picture gains contrast. <strong>Pull it back to disagree</strong> and it turns inside out. Your ten answers average into your own black-and-white filter.</p>
+          <h1>Gray Point</h1>
+          <p>Ten statements, six seconds each. They start small and get bigger. <strong>Lean your hand toward the camera to agree</strong> and the picture gains contrast. <strong>Pull it back to disagree</strong> and it turns inside out. Your ten answers average into your own filter.</p>
           <fieldset class="sets">
             <legend>Statements</legend>
             <div class="set-chips" id="set-chips"></div>
@@ -62,8 +62,8 @@
           <button id="view-average" type="button" role="tab" aria-selected="false">Your ten, averaged</button>
         </div>
         <label class="slider">
-          <span>Color <output id="sat-value">0%</output></span>
-          <input id="saturation" type="range" min="0" max="100" value="0">
+          <span>Color <output id="sat-value">100%</output></span>
+          <input id="saturation" type="range" min="0" max="100" value="100">
         </label>
         <div class="actions">
           <button id="save" class="button" type="button">Save image</button>
