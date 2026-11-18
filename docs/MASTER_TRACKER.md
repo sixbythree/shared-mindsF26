@@ -74,6 +74,7 @@
   - [x] Seven statement sets, Shuffle, and Ask the machine (gpt-4o-mini via the Replicate proxy, any topic); New statements / Same ten again on the results (2026-11-17)
   - [x] Steadier hand lean: median of 5, length/width (tilt-proof), 1s hold when lost (2026-11-18)
   - [x] Results open in full color; slider turns it down (2026-11-18)
+  - [x] Pixels slider on the results for a bitmap look (2026-11-18)
   - [x] Renamed Gray Point; folder `a09_gray_point/` (2026-11-18)
   - [ ] Play-test the hand lean on a real camera and tune `LEAN` (in/out ranges, dead zone)
   - [x] Portfolio post committed

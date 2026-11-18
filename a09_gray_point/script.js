@@ -57,6 +57,7 @@ const state = {
   samples: [],
   answers: [],
   view: "live", // results: live | average
+  pixel: 1, // results: block size for pixelation, 1 = off
   saturation: 1, // results open in full color; the slider turns it down
   avgLut: null,
   composite: null, // { gray, color } Float32Arrays at SNAP×SNAP
@@ -529,9 +530,28 @@ function drawComposite() {
 
 // ---------- Drawing ----------
 
+// Pixelation for the results: draw the picture small, then back up without smoothing, so each
+// block is one flat square of color. `state.pixel` is the block size in stage pixels (1 = off).
+const pixelCanvas = document.createElement("canvas");
+const pctx = pixelCanvas.getContext("2d");
+function pixelate() {
+  const block = state.pixel;
+  if (state.mode !== "results" || block <= 1) return;
+  const n = Math.max(1, Math.round(SIZE / block));
+  if (pixelCanvas.width !== n) pixelCanvas.width = pixelCanvas.height = n;
+  pctx.imageSmoothingEnabled = true;
+  pctx.drawImage(stage, 0, 0, n, n);
+  sctx.imageSmoothingEnabled = false;
+  sctx.drawImage(pixelCanvas, 0, 0, SIZE, SIZE);
+  sctx.imageSmoothingEnabled = true;
+}
+
 function drawStage(time) {
   drawSource(time);
-  if (state.mode === "results" && state.view === "average") return drawComposite();
+  if (state.mode === "results" && state.view === "average") {
+    drawComposite();
+    return pixelate();
+  }
   const img = rctx.getImageData(0, 0, SIZE, SIZE);
   let lut;
   if (state.mode === "results") lut = state.avgLut;
@@ -539,6 +559,7 @@ function drawStage(time) {
   else lut = lutFor(curveFor(state.lean));
   applyLut(img.data, lut, state.mode === "results" ? state.saturation : 0, state.histogram);
   sctx.putImageData(img, 0, 0);
+  pixelate();
 }
 
 let curveDpr = 0;
@@ -688,6 +709,12 @@ $("saturation").addEventListener("input", (e) => {
   $("sat-value").textContent = `${e.target.value}%`;
   paintThumbs();
 });
+$("pixel").addEventListener("input", (e) => {
+  // The slider runs 0–100 on an even feel; blocks grow faster at the top (1 to 48 stage pixels).
+  const v = Number(e.target.value) / 100;
+  state.pixel = Math.max(1, Math.round(1 + 47 * v * v));
+  $("pixel-value").textContent = state.pixel > 1 ? `${Math.round(SIZE / state.pixel)} × ${Math.round(SIZE / state.pixel)}` : "Off";
+});
 $("save").addEventListener("click", () => {
   stage.toBlob((blob) => {
     if (!blob) return;
@@ -739,6 +766,10 @@ if (scripted) {
     if (params.has("sat")) {
       $("saturation").value = params.get("sat");
       $("saturation").dispatchEvent(new Event("input"));
+    }
+    if (params.has("pixel")) {
+      $("pixel").value = params.get("pixel");
+      $("pixel").dispatchEvent(new Event("input"));
     }
   }, 100);
 }
