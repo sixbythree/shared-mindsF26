@@ -25,9 +25,13 @@
 
         <div class="overlay intro-card" id="intro">
           <h1>Black Point</h1>
-          <p>Ten statements, six seconds each. They start small and get bigger.</p>
-          <p><strong>Lean your hand toward the camera to agree</strong> and the picture gains contrast as its black and white points close in. <strong>Pull it back to disagree</strong> and the picture turns inside out.</p>
-          <p>At the end, your ten answers average into your own black-and-white filter.</p>
+          <p>Ten statements, six seconds each. They start small and get bigger. <strong>Lean your hand toward the camera to agree</strong> and the picture gains contrast. <strong>Pull it back to disagree</strong> and it turns inside out. Your ten answers average into your own black-and-white filter.</p>
+          <fieldset class="sets">
+            <legend>Statements</legend>
+            <div class="set-chips" id="set-chips"></div>
+            <p class="fine" id="set-blurb"></p>
+            <input id="topic" class="topic" type="text" maxlength="120" placeholder="A topic for the machine, or leave it blank" hidden>
+          </fieldset>
           <div class="actions">
             <button id="start-hand" class="button primary" type="button">Start with my hand</button>
             <button id="start-keys" class="button" type="button">Use the keys instead</button>
@@ -63,7 +67,8 @@
         </label>
         <div class="actions">
           <button id="save" class="button" type="button">Save image</button>
-          <button id="again" class="button primary" type="button">Start over</button>
+          <button id="new-set" class="button" type="button">New statements</button>
+          <button id="again" class="button primary" type="button">Same ten again</button>
         </div>
       </div>
     </section>
@@ -100,7 +105,7 @@
   </main>
 
   <section class="answers" id="answers" hidden>
-    <h2>Your ten</h2>
+    <h2 id="answers-title">Your ten</h2>
     <ol id="answer-list"></ol>
   </section>
 

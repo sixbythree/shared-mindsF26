@@ -3,7 +3,8 @@
 ## Black Point (A09) follow-ups
 - Play-test the hand lean on a real camera; tune `LEAN` in `script.js` (in/out ranges, dead zone, smoothing)
 - Shared filters: save each person's averaged curve to Firestore and show how others leaned on the same statements
-- Statement sets (or writing your own) beyond the fixed ten
+- Write your own ten (typed statements), and share a set by link
+- A stronger model for Ask the machine if the proxy offers one (gpt-4o-mini still slips in safe statements)
 - Try a color run from the start (the notes ask about black and white vs. color and saturation)
 
 ## Human Nature (A08) follow-ups

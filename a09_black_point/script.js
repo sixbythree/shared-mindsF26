@@ -1,6 +1,6 @@
 // Black Point: agree or disagree by leaning your hand in or out. Each answer is a tone curve;
 // the ten curves and the ten pictures average into your own black-and-white filter.
-import { STATEMENTS } from "./statements.js";
+import { SETS, shuffledSet, machineSet } from "./statements.js";
 import { startCamera, createHand } from "./hand.js";
 
 const params = new URLSearchParams(location.search);
@@ -59,6 +59,8 @@ const state = {
   composite: null, // { gray, color } Float32Arrays at SNAP×SNAP
   histogram: new Float32Array(64),
   keys: { up: false, down: false },
+  choice: null, // which statement set is picked
+  set: SETS[0], // { name, statements } for this run
 };
 
 // ---------- Tone curves ----------
@@ -211,13 +213,17 @@ function setStatus(text) {
 async function begin(input) {
   state.input = input;
   $("start-hand").disabled = $("start-keys").disabled = true;
-  setStatus("Asking for the camera…");
-  state.camera = params.get("camera") === "off" ? false : await startCamera(video);
+  // The statements get ready while the camera and model load (the machine takes a few seconds).
+  const setReady = prepareSet();
+  if (!state.camera) {
+    setStatus("Asking for the camera…");
+    state.camera = params.get("camera") === "off" ? false : await startCamera(video);
+  }
   if (input === "hand") {
     if (!state.camera) {
       state.input = "keys";
       setStatus("No camera, so the keys it is: hold ↑ to lean in, ↓ to lean out.");
-    } else {
+    } else if (!hand.state.ready) {
       try {
         await hand.start(setStatus);
       } catch (err) {
@@ -229,8 +235,75 @@ async function begin(input) {
   } else {
     setStatus(state.camera ? "" : "No camera: using a drawn stand-in.");
   }
+  await setReady;
+  $("start-hand").disabled = $("start-keys").disabled = false;
   if (state.input === "hand") startCalibration();
   else startCountdown();
+}
+
+// ---------- Statement sets ----------
+
+const CHOICES = [...SETS.map((s) => ({ id: s.id, name: s.name, blurb: s.blurb })),
+  { id: "shuffle", name: "Shuffle", blurb: "Ten from all the sets, still climbing from small to big." },
+  { id: "machine", name: "Ask the machine", blurb: "A language model writes a new ten, on your topic or its own." }];
+
+function savedChoice() {
+  const fromUrl = params.get("set");
+  if (CHOICES.some((c) => c.id === fromUrl)) return fromUrl;
+  try {
+    const saved = localStorage.getItem("black-point-set");
+    if (CHOICES.some((c) => c.id === saved)) return saved;
+  } catch {}
+  return SETS[0].id;
+}
+
+function renderChoices() {
+  const wrap = $("set-chips");
+  wrap.innerHTML = "";
+  for (const c of CHOICES) {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "set";
+    input.value = c.id;
+    input.checked = c.id === state.choice;
+    input.addEventListener("change", () => chooseSet(c.id));
+    const span = document.createElement("span");
+    span.textContent = c.name;
+    label.append(input, span);
+    wrap.append(label);
+  }
+  chooseSet(state.choice);
+}
+
+function chooseSet(id) {
+  state.choice = id;
+  const c = CHOICES.find((x) => x.id === id);
+  $("set-blurb").textContent = c.blurb;
+  $("topic").hidden = id !== "machine";
+  try {
+    localStorage.setItem("black-point-set", id);
+  } catch {}
+}
+
+async function prepareSet() {
+  if (state.choice === "shuffle") return (state.set = shuffledSet());
+  if (state.choice !== "machine") return (state.set = SETS.find((s) => s.id === state.choice));
+  setStatus("The machine is writing ten statements…");
+  try {
+    state.set = await machineSet($("topic").value);
+    setStatus("");
+  } catch (err) {
+    console.warn(err);
+    state.set = shuffledSet();
+    setStatus("The machine didn't answer, so here's a shuffled set instead.");
+  }
+  return state.set;
+}
+
+function backToSets() {
+  setStatus("");
+  setMode("intro");
 }
 
 function startCalibration() {
@@ -272,13 +345,17 @@ function updateCountdown(dt) {
   if (state.countdown <= 0) startStatement(0);
 }
 
+function showStatement(i) {
+  $("count").textContent = `${state.set.name} · ${i + 1} / ${state.set.statements.length}`;
+  $("statement-text").textContent = state.set.statements[i];
+}
+
 function startStatement(i) {
   state.index = i;
   state.t = 0;
   state.samples = [];
   if (state.input === "keys") state.target = 0;
-  $("count").textContent = `${i + 1} / ${STATEMENTS.length}`;
-  $("statement-text").textContent = STATEMENTS[i];
+  showStatement(i);
   $("statement").classList.remove("fading");
   setMode("run");
 }
@@ -290,14 +367,13 @@ function updateRun(dt) {
   $("timer-fill").style.width = `${Math.min(1, state.t / SECONDS_PER_STATEMENT) * 100}%`;
   if (state.t >= SECONDS_PER_STATEMENT) {
     recordAnswer();
-    if (state.index + 1 >= STATEMENTS.length) return finish();
+    if (state.index + 1 >= state.set.statements.length) return finish();
     $("statement").classList.add("fading");
     const next = state.index + 1;
     state.t = -GAP;
     setTimeout(() => {
       if (state.mode !== "run") return;
-      $("count").textContent = `${next + 1} / ${STATEMENTS.length}`;
-      $("statement-text").textContent = STATEMENTS[next];
+      showStatement(next);
       $("statement").classList.remove("fading");
       $("timer-fill").style.width = "0%";
       state.index = next;
@@ -312,7 +388,7 @@ function recordAnswer() {
   const curve = curveFor(d);
   smctx.drawImage(raw, 0, 0, SNAP, SNAP);
   const picture = smctx.getImageData(0, 0, SNAP, SNAP);
-  state.answers.push({ text: STATEMENTS[state.index], d, curve, lut: lutFor(curve), picture });
+  state.answers.push({ text: state.set.statements[state.index], d, curve, lut: lutFor(curve), picture });
 }
 
 function finish() {
@@ -338,6 +414,7 @@ function finish() {
   state.composite = { gray, color };
   state.view = "live";
   updateViewButtons();
+  $("answers-title").textContent = `Your ten: ${state.set.name}`;
   renderAnswers();
   writeReading();
   setMode("results");
@@ -577,6 +654,7 @@ function frame(now) {
 
 $("start-hand").addEventListener("click", () => begin("hand"));
 $("start-keys").addEventListener("click", () => begin("keys"));
+$("new-set").addEventListener("click", backToSets);
 $("again").addEventListener("click", () => {
   if (state.input === "hand") startCalibration();
   else startCountdown();
@@ -622,6 +700,9 @@ window.addEventListener("keyup", (e) => {
 window.addEventListener("blur", () => {
   state.keys.up = state.keys.down = false;
 });
+
+state.choice = savedChoice();
+renderChoices();
 
 if (params.has("debug")) window.blackPoint = { state, hand, curveFor, lutFor };
 

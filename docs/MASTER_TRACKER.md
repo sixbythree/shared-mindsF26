@@ -70,6 +70,8 @@
   - [x] Results: the ten curves averaged into one filter, live view or the ten pictures averaged, Color (saturation) slider, Save image, ten cards, a short reading
   - [x] Arrow-key fallback and a drawn stand-in without a camera; `?answers=` and `?seconds=` for scripted tests
   - [x] Card on the root index (08)
+  - [x] Sphere-and-plane sketch as the post thumbnail (2026-11-16)
+  - [x] Seven statement sets, Shuffle, and Ask the machine (gpt-4o-mini via the Replicate proxy, any topic); New statements / Same ten again on the results (2026-11-17)
   - [ ] Play-test the hand lean on a real camera and tune `LEAN` (in/out ranges, dead zone)
   - [ ] Commit the portfolio post once the portfolio's in-progress work is sorted
 

@@ -94,7 +94,91 @@ body {
 
 .intro-card {
   align-items: flex-start;
+  justify-content: safe center;
+  overflow-y: auto;
   text-align: left;
+}
+
+.sets {
+  width: 100%;
+  max-width: 34rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.sets legend {
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.set-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.set-chips label {
+  position: relative;
+}
+
+.set-chips input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.set-chips span {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 160ms var(--ease), color 160ms var(--ease);
+}
+
+.set-chips span:hover {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.set-chips input:checked + span {
+  border-color: var(--text);
+  background: var(--text);
+  color: #0e0e0e;
+  font-weight: 600;
+}
+
+.set-chips input:focus-visible + span {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+.sets .fine {
+  margin: 0.5rem 0 0;
+}
+
+.topic {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: rgb(0 0 0 / 40%);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.topic:focus {
+  border-color: var(--text);
+  outline: none;
 }
 
 .intro-card h1 {
@@ -470,6 +554,24 @@ input:focus-visible {
 }
 
 @media (max-width: 30rem) {
+  /* The intro is taller than a square phone frame: let it set the frame's height instead. */
+  body[data-mode="intro"] .stage {
+    aspect-ratio: auto;
+    min-height: calc(100vw - 2rem);
+  }
+
+  body[data-mode="intro"] #stage {
+    position: absolute;
+    inset: 0;
+    object-fit: cover;
+  }
+
+  .intro-card {
+    position: relative;
+    inset: auto;
+    min-height: calc(100vw - 2rem);
+  }
+
   .top {
     flex-wrap: wrap;
     gap: 0.25rem 1rem;
