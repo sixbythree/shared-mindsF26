@@ -78,6 +78,11 @@
   - [ ] Play-test the hand lean on a real camera and tune `LEAN` (in/out ranges, dead zone)
   - [x] Portfolio post committed
 
+- [ ] A10 Level, 2026-11-18 (notes in `a10_/`, PDF only)
+  - [x] Portfolio post 10 Level: verbatim brief from Notion, Inventing on Principle notes, Writing note ("Loading, brb"), notes image
+  - [ ] Manifesto (Writing) — the user's notes say still loading
+  - [ ] Making: run a Python notebook in Colab (embedding interpolation suggested by the brief); nothing to build in this repo yet
+
 ## In progress
 - [ ] 03 100 (A05), draft started 2026-10-26 in `a05_100/`
   - [x] Rules module (`rules.js`): 100-connection cap, 7-day window, 3-of-7 engagement, 5-min calls, 30-day block, New York calendar days

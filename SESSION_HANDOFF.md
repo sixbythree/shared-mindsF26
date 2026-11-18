@@ -15,6 +15,7 @@ Weekly assignments for the Shared Minds class, published as a static site on Git
 | 05 | `a06_textual_charades/` | Built 2026-10-21: Textual Charades (see below). Live: https://sixbythree.github.io/shared-mindsF26/a06_textual_charades/ |
 | 06 | `a07_spatial/` | Built 2026-10-28: Decisions (see below). Live: https://sixbythree.github.io/shared-mindsF26/a07_spatial/ |
 | 07 | `a08_human_nature/` | Built 2026-11-03: Human Nature (see below). Live: https://sixbythree.github.io/shared-mindsF26/a08_human_nature/ |
+| 09 | `a10_/` | 2026-11-18: notes only (Level). Post written; manifesto and Colab notebook still to come |
 | 08 | `a09_gray_point/` | Built 2026-11-13: Gray Point (see below). Live: https://sixbythree.github.io/shared-mindsF26/a09_gray_point/ |
 
 ## A09 Gray Point (current focus)
